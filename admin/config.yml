@@ -1,0 +1,56 @@
+# ------------------
+# Decap CMS Config
+# ------------------
+backend:
+  name: github
+  repo: PaulusLab/PaulusLab.github.io # !-- This MUST match your repo
+  branch: main                       # !-- This MUST match your main branch
+  auth_type: oauth
+  app_id: Ov23liuj6TUcb2R4Kyvs   # !-- PASTE YOUR CLIENT ID FROM PART 1
+
+# Where to upload images
+media_folder: "assets/img/uploads" # Where images are saved
+public_folder: "/assets/img/uploads" # How the site accesses them
+
+# This is the list of "editable" things for your UI
+collections:
+  # 1. Edit site-wide settings
+  - name: "settings"
+    label: "Site Settings"
+    files:
+      - label: "Main Configuration"
+        name: "config"
+        file: "_config.yml"
+        fields:
+          - { label: "Site Title", name: "title", widget: "string" }
+          - { label: "First Name (PI)", name: "first_name", widget: "string" }
+          - { label: "Middle Name (PI)", name: "middle_name", widget: "string", required: false }
+          - { label: "Last Name (PI)", name: "last_name", widget: "string" }
+          - { label: "Site Description", name: "description", widget: "markdown" }
+          - { label: "Contact Note", name: "contact_note", widget: "string" }
+
+  # 2. Edit the main pages (About, Projects, Team, etc.)
+  - name: "pages"
+    label: "Pages"
+    label_singular: "Page"
+    folder: "_pages"
+    create: true
+    slug: "{{slug}}.md"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Page URL (Permalink)", name: "permalink", widget: "string" }
+      - { label: "Layout", name: "layout", widget: "hidden", default: "page" }
+      - { label: "Page Content", name: "body", widget: "markdown" }
+
+  # 3. Add/Edit "News" items
+  - name: "news"
+    label: "News"
+    label_singular: "News Item"
+    folder: "_news"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Date", name: "date", widget: "datetime" }
+      - { label: "Layout", name: "layout", widget: "hidden", default: "post" }
+      - { label: "News Content", name: "body", widget: "markdown" }
