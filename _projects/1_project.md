@@ -8,74 +8,235 @@ category: work
 related_publications: true
 ---
 
-Every project has a beautiful feature showcase page.
-It's easy to include images in a flexible 3-column grid format.
-Make your photos 1/3, 2/3, or full width.
+This repository contains a clinical risk calculator to predict the outcomes of retinal detachment (RD) surgery. The tool is powered by a statistical model trained on real-world patient data from a large Electronic Health Record (EHR) database.
 
-To give your project a background in the portfolio page, just add the img tag to the front matter like so:
+The calculator is designed to help clinicians and patients set expectations by providing data-driven estimates for:
 
-    ---
-    layout: page
-    title: project
-    description: a project with a background image
-    img: /assets/img/12.jpg
-    ---
+Single Surgery Success: The probability that the retina will remain attached 90 days after a single operation.
 
-<div class="row">
-    <div class="col-sm mt-3 mt-md-0">
-        {% include figure.liquid loading="eager" path="assets/img/1.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-    </div>
-    <div class="col-sm mt-3 mt-md-0">
-        {% include figure.liquid loading="eager" path="assets/img/3.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-    </div>
-    <div class="col-sm mt-3 mt-md-0">
-        {% include figure.liquid loading="eager" path="assets/img/5.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-    </div>
-</div>
-<div class="caption">
-    Caption photos easily. On the left, a road goes through a tunnel. Middle, leaves artistically fall in a hipster photoshoot. Right, in another hipster photoshoot, a lumberjack grasps a handful of pine needles.
-</div>
-<div class="row">
-    <div class="col-sm mt-3 mt-md-0">
-        {% include figure.liquid loading="eager" path="assets/img/5.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-    </div>
-</div>
-<div class="caption">
-    This image can also have a caption. It's like magic.
-</div>
+Visual Acuity: A prediction of the 6-month post-operative visual acuity.
 
-You can also put regular text between your rows of images, even citations {% cite einstein1950meaning %}.
-Say you wanted to write a bit about your project before you posted the rest of the images.
-You describe how you toiled, sweated, _bled_ for your project, and then... you reveal its glory in the next row of images.
+Complication Risk: The probability of developing common complications like an Epiretinal Membrane (ERM) or a post-operative cataract.
 
 <div class="row justify-content-sm-center">
-    <div class="col-sm-8 mt-3 mt-md-0">
-        {% include figure.liquid path="assets/img/6.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-    </div>
-    <div class="col-sm-4 mt-3 mt-md-0">
-        {% include figure.liquid path="assets/img/11.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-    </div>
+<div class="col-sm-10 mt-3 mt-md-0">
+{% include figure.liquid loading="eager" path="assets/img/calculator_screenshot.jpg" title="Calculator UI Prototype" class="img-fluid rounded z-depth-1" %}
+</div>
 </div>
 <div class="caption">
-    You can also have artistically styled 2/3 + 1/3 images, like these.
+A prototype of the final risk calculator UI, with inputs informed by our statistical models. (Note: You'll need to add a screenshot of your calculator here, I've used calculator_screenshot.jpg as a placeholder).
 </div>
 
-The code is simple.
-Just wrap your images with `<div class="col-sm">` and place them inside `<div class="row">` (read more about the <a href="https://getbootstrap.com/docs/4.4/layout/grid/">Bootstrap Grid</a> system).
-To make images responsive, add `img-fluid` class to each; for rounded corners and shadows use `rounded` and `z-depth-1` classes.
-Here's the code for the last row of images above:
+How the Model Was Built
+
+The predictive models in this calculator were developed through a rigorous 4-step data science pipeline (built with pandas, scikit-learn, and statsmodels) designed to handle the complexity of messy, real-world EHR data.
+
+1. Cohort Identification
+
+Our first challenge was to accurately identify all primary RD surgeries. Relying on billing (CPT) codes alone was found to be unreliable, as they often lacked critical data like which eye was operated on.
+
+Instead, we used the hospital's surgical log (RD_surgeries.csv) as our "single source of truth."
+
+We started with 34,658 logged surgical procedures.
+
+We filtered for those with valid laterality ('Right' or 'Left'), leaving 22,702 surgeries.
+
+We then filtered these by a validated list of 29 procedure names (e.g., "VITRECTOMY", "SCLERAL BUCKLING") to find all RD-related operations, resulting in 7,821 surgeries.
+
+Finally, to build a model for primary repair, we kept only the first surgery for each (patient, eye) pair, yielding our final study cohort of 4,334 primary RD repairs.
+
+2. Feature Engineering
+
+For each of the 4,334 surgeries, we built a comprehensive "snapshot" of the patient's pre-operative state. This was a massive data-joining task that ran in parallel on a high-performance computing cluster.
+
+For each surgery, the pipeline searched across 10 different data tables (totaling over 30 million records) to find:
+
+Patient History: All pre-operative ICD-10 diagnoses (e.g., Myopia, Diabetes, PVR) from a 2.4M-row diagnosis table.
+
+Medication History: All active medications on the date of surgery (e.g., glaucoma drops, steroids) from a 27.8M-row medication table.
+
+Prior Ocular Surgeries: A history of cataract surgery, vitrectomy, or prior RD repair from a 3M-row surgical history table (which required extensive cleaning of junk text like "1980'S" and "cataracts").
+
+Exam Findings: The closest pre-operative Visual Acuity, PVD status, and Lens Status from a 1M-row exam findings table.
+
+3. Outcome Definition
+
+We then looked forward in time from the date of surgery for each patient to define the outcomes:
+
+90-Day Success (Failure): Defined as any RD-related CPT code appearing in the billing tables within 90 days post-op.
+
+6-Month VA: The LogMAR visual acuity found in the exam table closest to the 180-day post-op mark.
+
+Complications: Defined by the appearance of a new ICD-10 code (e.g., H35.37 for ERM) within 365 days post-op that was not present pre-operatively.
+
+This process resulted in the final final_flat_table.csv used for modeling.
+
+Model 1: 90-Day Single Surgery Success
+
+We ran a logistic regression model on the 4,334 surgeries to predict 90-day success.
+
+Result: The model had weak, but statistically significant, predictive power (AUC: 0.583).
+
+Key Finding: The model converged: False due to complete separation in the MethodOfRepair_SB (Scleral Buckle) and MethodOfRepair_PNR (Pneumatic) groups. This is a key finding in itself: it suggests these methods had a near-perfect (or 0%) success/failure rate in the dataset, which makes their coefficients non-calculable.
+
+Significant Factors (p < 0.05):
+
+PVD_Status (p=0.044): Presence of a pre-op PVD was protective (associated with higher success).
+
+RF_is_Myopia (p=0.031): Myopia was a risk factor for failure.
+
+RF_is_Retinitis (p=0.028): A history of retinitis was protective (a curious finding).
+
+RF_is_on_Steroid (p=0.001): Being on steroids pre-op was a strong risk factor for failure.
+
+MethodOfRepair_COMPLEX (p=0.027): A complex repair was, as expected, a risk factor for failure.
 
 {% raw %}
 
-```html
-<div class="row justify-content-sm-center">
-  <div class="col-sm-8 mt-3 mt-md-0">
-    {% include figure.liquid path="assets/img/6.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-  </div>
-  <div class="col-sm-4 mt-3 mt-md-0">
-    {% include figure.liquid path="assets/img/11.jpg" title="example image" class="img-fluid rounded z-depth-1" %}
-  </div>
-</div>
-```
+                         Logit Regression Results                           
+==============================================================================
+Dep. Variable:                      y   No. Observations:                 4334
+Model:                          Logit   Df Residuals:                     4309
+Method:                           MLE   Df Model:                           24
+Date:                Mon, 10 Nov 2025   Pseudo R-squ.:                 0.01515
+Time:                        16:08:49   Log-Likelihood:                -2019.3
+converged:                      False   LL-Null:                       -2050.4
+Covariance Type:            nonrobust   LLR p-value:                 3.190e-05
+==============================================================================================
+                                 coef   std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------------------
+const                          1.8527      0.226      8.183      0.000       1.409       2.296
+Age                           -0.0016      0.003     -0.537      0.592      -0.008       0.004
+VA_LogMAR_PreOp               -0.4349      0.228     -1.908      0.056      -0.882       0.012
+PreOp_Refractive_Error         0.0750      0.097      0.775      0.438      -0.115       0.265
+PVD_Status                    -0.2523      0.125     -2.015      0.044      -0.498      -0.007
+RF_is_Myopia                   0.3212      0.149      2.159      0.031       0.030       0.613
+RF_is_Lattice                  0.0050      0.197      0.025      0.980      -0.381       0.391
+RF_is_Diabetes                -0.1396      0.106     -1.314      0.189      -0.348       0.069
+RF_is_Trauma                  -0.1609      0.172     -0.934      0.351      -0.499       0.177
+RF_is_FamilyHistoryRD         -0.0377      0.094     -0.402      0.687      -0.221       0.146
+RF_is_Uveitis                  0.2598      0.249      1.044      0.296      -0.228       0.748
+RF_is_Retinitis               -0.6126      0.279     -2.194      0.028      -1.160      -0.065
+RF_is_ROP                     -0.8380      0.559     -1.498      0.134      -1.935       0.259
+RF_is_Glaucoma_ICD             0.1822      0.127      1.436      0.151      -0.066       0.431
+RF_is_SystemicHypertension     0.0605      0.095      0.640      0.522      -0.125       0.246
+RF_is_VitreousHemorrhage       0.1190      0.126      0.947      0.343      -0.127       0.365
+RF_is_on_Glaucoma_Med          0.2270      0.146      1.552      0.121      -0.060       0.514
+RF_is_on_Steroid               0.3512      0.109      3.218      0.001       0.137       0.565
+gender_Male                   -0.1071      0.082     -1.299      0.194      -0.269       0.054
+MethodOfRepair_PPV_SB         -0.0410      0.189     -0.217      0.828      -0.412       0.330
+MethodOfRepair_SB             16.8470   2591.917      0.006      0.995   -5063.216    5096.910
+MethodOfRepair_PNR            18.9145   1.72e+04      0.001      0.999   -3.37e+04    3.37e+04
+MethodOfRepair_COMPLEX        -0.2026      0.091     -2.218      0.027      -0.382      -0.024
+LensStatus_Pseudophakic        0.0491      0.097      0.504      0.614      -0.142       0.240
+LensStatus_Aphakic            -0.3400      0.295     -1.154      0.249      -0.918       0.238
+==============================================================================================
+
+
+{% endraw %}
+
+Model 2: 6-Month Visual Acuity (VA)
+
+We ran a linear regression (OLS) model to predict the 6-month post-operative LogMAR VA.
+
+Result: The model had no predictive power (R-squared: 0.008).
+
+Reason: The model was "starving" for data. Only 454 patients (10.5% of the cohort) had a recorded 6-month visual acuity, which was not enough data to find a meaningful signal. The asa_rating_num was also removed as it had zero variance (was imputed to 3.0 for all patients in this subset).
+
+{% raw %}
+
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:                      y   R-squared:                       0.008
+Model:                            OLS   Adj. R-squared:                  0.002
+Method:                 Least Squares   F-statistic:                     1.272
+Date:                Mon, 10 Nov 2025   Prob (F-statistic):              0.283
+Time:                        16:08:49   Log-Likelihood:                -505.98
+No. Observations:                 454   AIC:                             1020.
+Df Residuals:                     450   BIC:                             1036.
+Df Model:                           3                                         
+Covariance Type:            nonrobust                                         
+===================================================================================
+                      coef   std err          t      P>|t|      [0.025      0.975]
+-----------------------------------------------------------------------------------
+const               0.6674      0.180      3.716      0.000       0.314       1.020
+Age                 0.0008      0.002      0.332      0.740      -0.004       0.005
+VA_LogMAR_PreOp     0.2808      0.227      1.240      0.216      -0.164       0.726
+RF_is_Diabetes      0.1252      0.089      1.402      0.162      -0.050       0.301
+==============================================================================
+
+
+{% endraw %}
+
+Model 3: ERM Complication
+
+We ran a logistic regression model to predict the 1-year risk of developing an Epiretinal Membrane (ERM).
+
+Result: This was one of our strongest models, showing a clear predictive signal (AUC: 0.615).
+
+Significant Factors (p < 0.05):
+
+Age (p < 0.001): Highly significant. Older age is a strong risk factor for post-op ERM.
+
+Diabetes (p < 0.001): Highly significant. Diabetes was found to be protective against an ERM diagnosis, a counter-intuitive finding that may be due to a coding artifact or a real clinical effect.
+
+{% raw %}
+
+                         Logit Regression Results                           
+==============================================================================
+Dep. Variable:                      y   No. Observations:                 4334
+Model:                          Logit   Df Residuals:                     4328
+Method:                           MLE   Df Model:                            5
+Date:                Mon, 10 Nov 2025   Pseudo R-squ.:                 0.02252
+Time:                        16:08:49   Log-Likelihood:                -1297.3
+converged:                       True   LL-Null:                       -1327.2
+Covariance Type:            nonrobust   LLR p-value:                 1.345e-11
+==========================================================================================
+                             coef   std err          z      P>|z|      [0.025      0.975]
+------------------------------------------------------------------------------------------
+const                     -3.4933      0.266    -13.138      0.000      -4.014      -2.972
+Age                        0.0205      0.004      5.134      0.000       0.013       0.028
+RF_is_Diabetes            -0.7073      0.155     -4.569      0.000      -1.011      -0.404
+RF_is_Lattice              0.2914      0.227      1.283      0.200      -0.154       0.737
+MethodOfRepair_PPV_SB      0.3932      0.215      1.827      0.068      -0.029       0.815
+MethodOfRepair_COMPLEX     0.1563      0.125      1.249      0.212      -0.089       0.402
+==========================================================================================
+
+
+{% endraw %}
+
+Model 4: Cataract Complication
+
+We ran a logistic regression model on the 3,139 phakic (non-cataract-operated) patients to predict 1-year risk of developing a cataract.
+
+Result: This model showed a weak signal (AUC: 0.534) but identified two expected risk factors.
+
+Significant Factors (p < 0.05):
+
+Diabetes (p = 0.026): Diabetics were more likely to develop cataracts post-operatively.
+
+PPV/Scleral Buckle (p = 0.003): The combined PPV/Scleral Buckle procedure had a significantly higher rate of post-op cataract formation compared to PPV alone.
+
+{% raw %}
+
+                         Logit Regression Results                           
+==============================================================================
+Dep. Variable:                      y   No. Observations:                 3139
+Model:                          Logit   Df Residuals:                     3134
+Method:                           MLE   Df Model:                            4
+Date:                Mon, 10 Nov 2025   Pseudo R-squ.:                 0.003749
+Time:                        16:08:49   Log-Likelihood:                -1993.7
+converged:                       True   LL-Null:                       -2001.2
+Covariance Type:            nonrobust   LLR p-value:                 0.004689
+==========================================================================================
+                             coef   std err          z      P>|z|      [0.025      0.975]
+------------------------------------------------------------------------------------------
+const                     -1.0504      0.172     -6.099      0.000      -1.388      -0.713
+Age                        0.0048      0.003      1.749      0.080      -0.001       0.010
+RF_is_Diabetes             0.1999      0.090      2.222      0.026       0.024       0.376
+MethodOfRepair_PPV_SB      0.5107      0.171      2.981      0.003       0.175       0.846
+MethodOfRepair_COMPLEX     0.0506      0.088      0.573      0.566      -0.122       0.224
+==========================================================================================
+
 
 {% endraw %}
