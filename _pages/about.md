@@ -14,7 +14,7 @@ profile:
     <p>Baltimore, MD 21287</p>
 
 selected_papers: false # includes a list of papers marked as "selected={true}"
-social: true # includes social icons at the bottom of the page
+social: false # includes social icons at the bottom of the page
 
 announcements:
   enabled: false # includes a list of news items
@@ -29,3 +29,8 @@ latest_posts:
 The Paulus Advanced Retinal Imaging and Laser Laboratory is a dynamic, diverse, multidisciplinary group dedicated to improving the vision of patients suffering from eye diseases through applying biomedical engineering, lasers, photonics, optics, ultrasound, physics, nanoparticles, biochemistry, and mathematical modeling to develop novel retinal imaging systems and laser therapies.
 
 <a href='https://www.hopkinsmedicine.org/wilmer/research/retina/paulus-lab'>Learn more</a> about the lab.
+
+Contact
+
+Yannis M. Paulus, MD, FACS
+Email: ypaulus1@jh.edu
