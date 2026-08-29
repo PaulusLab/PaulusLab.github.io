@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMD Clinical Decision Support Tool — Paulus Lab - JHU</title>
+    <script src="vendor/tailwind.min.js"></script>
+    <link href="vendor/fonts/inter/inter.css" rel="stylesheet">
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        /* ── Reset & Base ──────────────────────────────────── */
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0fdfa; min-height: 100vh; }
+
+        /* ── Teal Design Tokens ────────────────────────────── */
+        :root {
+            --teal:        #0d9488;
+            --teal-dark:   #0f766e;
+            --teal-light:  #ccfbf1;
+            --teal-mid:    #5eead4;
+            --teal-bg:     #f0fdfa;
+            --border:      #e5e7eb;
+            --text:        #111827;
+            --text-sub:    #6b7280;
+            --text-muted:  #9ca3af;
+        }
+
+        /* ── Progress Bar ──────────────────────────────────── */
+        .wizard-header {
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 50;
+        }
+        .wizard-header-inner {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 64px; gap: 16px;
+        }
+        .wizard-brand {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; flex-shrink: 0;
+        }
+        .wizard-brand-icon {
+            width: 34px; height: 34px; border-radius: 8px;
+            background: var(--teal-light);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .wizard-brand-text { font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .wizard-brand-sub  { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
+
+        .step-track {
+            display: flex; align-items: center; gap: 0; flex: 1;
+            max-width: 600px; justify-content: center;
+        }
+        .step-item {
+            display: flex; align-items: center; gap: 6px;
+            cursor: pointer; padding: 4px 8px; border-radius: 6px;
+            transition: background 0.12s;
+        }
+        .step-item:hover.step-done { background: #f3f4f6; }
+        .step-num {
+            width: 24px; height: 24px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+            transition: background 0.2s, color 0.2s;
+        }
+        .step-num.done    { background: var(--teal); color: #fff; }
+        .step-num.active  { background: var(--teal); color: #fff; box-shadow: 0 0 0 3px var(--teal-light); }
+        .step-num.pending { background: #f3f4f6; color: #9ca3af; }
+        .step-label { font-size: 0.75rem; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+        .step-label.active { color: var(--teal-dark); }
+        .step-label.done   { color: var(--text-sub); }
+        .step-connector {
+            height: 1px; width: 28px; background: #e5e7eb; flex-shrink: 0; margin: 0 2px;
+            transition: background 0.2s;
+        }
+        .step-connector.done { background: var(--teal); }
+
+        /* ── Section Cards ─────────────────────────────────── */
+        .section-card {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .section-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer; user-select: none;
+        }
+        .section-header.no-collapse { cursor: default; }
+        .section-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .section-title { font-size: 0.95rem; font-weight: 700; color: var(--text); flex: 1; }
+        .section-body  { padding: 18px 20px; }
+        .section-collapse-icon { transition: transform 0.2s; color: #9ca3af; }
+        .section-collapse-icon.open { transform: rotate(180deg); }
+
+        /* ── Field Inputs (same as RDS) ────────────────────── */
+        .field-label {
+            display: block; font-size: 0.8rem; font-weight: 600;
+            color: #374151; margin-bottom: 5px; letter-spacing: 0.01em;
+        }
+        .custom-select {
+            width: 100%; appearance: none;
+            background-color: #fff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center;
+            border: 1.5px solid #d1d5db; border-radius: 8px;
+            padding: 9px 38px 9px 12px; font-size: 0.875rem; color: #111827;
+            cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; line-height: 1.4;
+        }
+        .custom-select:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(13,148,136,0.15); }
+        .custom-select:hover  { border-color: #9ca3af; }
+        .custom-input {
+            width: 100%; background: #fff; border: 1.5px solid #d1d5db;
+            border-radius: 8px; padding: 9px 12px; font-size: 0.875rem; color: #111827;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .custom-input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(13,148,136,0.15); }
+
+        /* ── Pill Badges ───────────────────────────────────── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 0.72rem; font-weight: 600;
+        }
+        .badge-early    { background: #fef9c3; color: #854d0e; }
+        .badge-inter    { background: #fed7aa; color: #9a3412; }
+        .badge-wet      { background: #fee2e2; color: #991b1b; }
+        .badge-green    { background: #dcfce7; color: #166534; }
+        .badge-gray     { background: #f3f4f6; color: #374151; }
+        .badge-blue     { background: #dbeafe; color: #1e40af; }
+        .badge-teal     { background: var(--teal-light); color: var(--teal-dark); }
+        .badge-red      { background: #fee2e2; color: #991b1b; }
+        .badge-orange   { background: #ffedd5; color: #9a3412; }
+
+        /* ── Buttons ───────────────────────────────────────── */
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--teal); color: #fff;
+            padding: 12px 24px; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 700;
+            border: none; cursor: pointer;
+            transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+            text-decoration: none;
+        }
+        .btn-primary:hover { background: var(--teal-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13,148,136,0.3); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: #fff; color: var(--text);
+            padding: 11px 22px; border-radius: 10px;
+            font-size: 0.88rem; font-weight: 600;
+            border: 1.5px solid var(--border); cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .btn-secondary:hover { border-color: #9ca3af; background: #f9fafb; }
+
+        /* ── Chart containers ──────────────────────────────── */
+        .chart-wrap {
+            position: relative;
+            background: #fff; border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 16px 18px 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .chart-title {
+            font-size: 0.82rem; font-weight: 700; color: var(--text);
+            margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+        }
+        .chart-subtitle { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+
+        /* ── Transparency Panel ────────────────────────────── */
+        .transp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 640px) { .transp-grid { grid-template-columns: 1fr; } }
+        .transp-pill {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; border-radius: 8px; gap: 8px;
+        }
+        .transp-pill.risk    { background: #fff5f5; border: 1px solid #fecaca; }
+        .transp-pill.protect { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .transp-pill.neutral { background: #f9fafb; border: 1px solid #e5e7eb; }
+        .transp-var  { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+        .transp-val  { font-size: 0.72rem; color: var(--text-sub); }
+        .transp-dir  { font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
+        .transp-dir.up   { color: #dc2626; }
+        .transp-dir.down { color: #16a34a; }
+        .transp-dir.neut { color: #9ca3af; }
+
+        /* ── Treatment configurator ────────────────────────── */
+        .seg-control { display: flex; flex-wrap: wrap; gap: 4px; background: #f3f4f6; border-radius: 8px; padding: 4px; }
+        .seg-btn {
+            flex: 1; min-width: 60px; padding: 7px 10px; border-radius: 5px; border: none;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer;
+            background: transparent; color: #6b7280;
+            transition: background 0.15s, color 0.15s; text-align: center; white-space: nowrap;
+        }
+        .seg-btn.active { background: #fff; color: var(--teal-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .toggle-wrap { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+        .toggle-label { font-size: 0.84rem; font-weight: 600; color: var(--text); }
+        .toggle-sub   { font-size: 0.72rem; color: var(--text-sub); }
+        .toggle-switch {
+            position: relative; width: 40px; height: 22px;
+            background: #d1d5db; border-radius: 999px; cursor: pointer;
+            transition: background 0.2s; flex-shrink: 0;
+        }
+        .toggle-switch.on { background: var(--teal); }
+        .toggle-knob {
+            position: absolute; top: 2px; left: 2px;
+            width: 18px; height: 18px; border-radius: 50%; background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: left 0.2s;
+        }
+        .toggle-switch.on .toggle-knob { left: 20px; }
+
+        /* ── Conversion banner ─────────────────────────────── */
+        .conversion-banner {
+            background: #fffbeb; border: 1.5px solid #fcd34d;
+            border-radius: 10px; padding: 12px 16px;
+            display: flex; gap: 10px; align-items: flex-start;
+            font-size: 0.82rem; color: #78350f; line-height: 1.5;
+        }
+
+        /* ── Step visibility ───────────────────────────────── */
+        .step-pane { display: none; }
+        .step-pane.active { display: block; }
+
+        /* ── Patient search autocomplete ───────────────────── */
+        .search-wrap { position: relative; }
+        .search-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            background: #fff; border: 1.5px solid var(--border);
+            border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            z-index: 100; max-height: 280px; overflow-y: auto;
+        }
+        .search-option {
+            padding: 10px 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; transition: background 0.1s;
+        }
+        .search-option:hover { background: var(--teal-bg); }
+        .search-option:not(:last-child) { border-bottom: 1px solid #f3f4f6; }
+        .search-emrn  { font-size: 0.85rem; font-weight: 700; color: var(--text); font-family: monospace; }
+        .search-meta  { font-size: 0.75rem; color: var(--text-sub); }
+
+        /* ── Page scaffold ─────────────────────────────────── */
+        .page-inner { max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px; }
+
+        /* ── Lab tabs ──────────────────────────────────────── */
+        .lab-tabs { display: flex; gap: 4px; background: #f3f4f6; border-radius: 8px; padding: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+        .lab-tab {
+            padding: 5px 12px; border-radius: 5px; border: none;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer;
+            background: transparent; color: #6b7280;
+            transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 4px;
+        }
+        .lab-tab.active { background: #fff; color: var(--teal-dark); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .lab-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+        /* ── Annotation flag tooltip ───────────────────────── */
+        .flag-tooltip {
+            position: absolute; background: #1f2937; color: #fff;
+            border-radius: 8px; padding: 8px 12px; font-size: 0.75rem;
+            pointer-events: none; z-index: 200;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            max-width: 220px; line-height: 1.5;
+        }
+
+        /* ── Misc ──────────────────────────────────────────── */
+        .divider { height: 1px; background: #f3f4f6; margin: 0; }
+        .kv-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #f9fafb; gap: 8px; }
+        .kv-key { font-size: 0.78rem; color: var(--text-sub); font-weight: 500; }
+        .kv-val { font-size: 0.82rem; color: var(--text); font-weight: 600; text-align: right; }
+        .patient-hero {
+            display: flex; align-items: flex-start; gap: 14px;
+            padding: 18px 20px; border-bottom: 1px solid #f3f4f6;
+        }
+        .patient-avatar {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: var(--teal-light); display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0;
+            font-size: 1.1rem; font-weight: 800; color: var(--teal-dark);
+        }
+        .patient-emrn  { font-size: 0.72rem; color: var(--text-muted); font-family: monospace; margin-bottom: 2px; }
+        .patient-name  { font-size: 1rem; font-weight: 700; color: var(--text); }
+        .patient-meta  { font-size: 0.78rem; color: var(--text-sub); margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     STICKY WIZARD HEADER
+════════════════════════════════════════════════════════ -->
+<div class="wizard-header">
+    <div class="wizard-header-inner">
+        <!-- Brand -->
+        <a href="index.html" class="wizard-brand">
+            <div class="wizard-brand-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div>
+                <div class="wizard-brand-text">AMD Decision Support</div>
+                <div class="wizard-brand-sub">Paulus Lab · JHU</div>
+            </div>
+        </a>
+
+        <!-- Step progress -->
+        <div class="step-track" id="stepTrack">
+            <!-- Rendered by JS -->
+        </div>
+
+        <!-- Research badge -->
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:4px 10px;flex-shrink:0;">
+            <span style="color:#92400e;font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚠ Research Only</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     STEP 1: PATIENT SEARCH
+════════════════════════════════════════════════════════ -->
+<div class="step-pane" id="step1">
+    <div class="page-inner">
+        <!-- Hero -->
+        <div style="text-align:center;padding:40px 0 32px;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:16px;background:var(--teal-light);margin-bottom:16px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <h2 style="font-size:1.6rem;font-weight:800;color:var(--text);margin-bottom:8px;">Patient Lookup</h2>
+            <p style="font-size:0.9rem;color:var(--text-sub);max-width:420px;margin:0 auto;line-height:1.6;">Search for an AMD patient by EMRN and select a clinic visit date to load their longitudinal profile.</p>
+        </div>
+
+        <!-- Search card -->
+        <div style="max-width:520px;margin:0 auto;">
+            <div class="section-card">
+                <div class="section-body" style="padding:28px 28px;">
+
+                    <!-- EMRN search -->
+                    <div style="margin-bottom:20px;">
+                        <label class="field-label" for="emrnInput">Patient EMRN</label>
+                        <div class="search-wrap">
+                            <input type="text" id="emrnInput" class="custom-input"
+                                placeholder="Type EMRN or patient name…"
+                                autocomplete="off"
+                                style="padding-left:38px;">
+                            <div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            </div>
+                            <div class="search-dropdown" id="searchDropdown" style="display:none;"></div>
+                        </div>
+                        <div id="selectedPatientPill" style="display:none;margin-top:8px;"></div>
+                    </div>
+
+                    <!-- Visit date -->
+                    <div style="margin-bottom:28px;" id="visitDateWrap" style="display:none;">
+                        <label class="field-label" for="visitDateSelect">Visit Date</label>
+                        <select id="visitDateSelect" class="custom-select">
+                            <option value="">— select a visit —</option>
+                        </select>
+                        <p style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;">The profile and prognosis will reflect data available as of this date.</p>
+                    </div>
+
+                    <!-- Load button -->
+                    <button class="btn-primary" id="loadPatientBtn" style="width:100%;justify-content:center;" onclick="AMD.loadPatient()">
+                        Load Patient Profile
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+
+                </div>
+            </div>
+
+            <!-- Featured patients hint -->
+            <p style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:14px;">
+                🔬 Showing simulated demo patients — <a href="#" id="loadRandomBtn" style="color:var(--teal);font-weight:600;text-decoration:none;">load a random patient</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     STEP 2: PATIENT PROFILE
+════════════════════════════════════════════════════════ -->
+<div class="step-pane" id="step2">
+    <div class="page-inner">
+        <!-- Back + title row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="AMD.goToStep(1)" style="padding:8px 16px;font-size:0.8rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                New Search
+            </button>
+            <div id="step2Title" style="font-size:0.85rem;color:var(--text-sub);font-weight:600;"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+            <!-- LEFT: Demographics -->
+            <div class="space-y-4" id="profileLeft">
+                <!-- Rendered by renderProfileLeft() -->
+            </div>
+
+            <!-- RIGHT: Charts -->
+            <div class="lg:col-span-2 space-y-4" id="profileRight">
+                <!-- Rendered by renderProfileCharts() -->
+            </div>
+
+        </div>
+
+        <!-- CTA -->
+        <div style="margin-top:28px;text-align:right;">
+            <button class="btn-primary" onclick="AMD.goToStep(3)" style="padding:14px 28px;font-size:0.95rem;">
+                Open Prognosis Navigator
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     STEP 3: PROGNOSIS NAVIGATOR
+════════════════════════════════════════════════════════ -->
+<div class="step-pane" id="step3">
+    <div class="page-inner">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="AMD.goToStep(2)" style="padding:8px 16px;font-size:0.8rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Patient Profile
+            </button>
+            <div>
+                <h2 style="font-size:1.2rem;font-weight:800;color:var(--text);">Prognosis Navigator</h2>
+                <p style="font-size:0.78rem;color:var(--text-sub);">5-year forecast — visual acuity trajectory &amp; AMD progression risk</p>
+            </div>
+        </div>
+
+        <div class="space-y-5" style="margin-top:20px;" id="prognosisContent">
+            <!-- Rendered by renderPrognosisCharts() -->
+        </div>
+
+        <!-- Treatment CTA -->
+        <div style="margin-top:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div id="treatmentCTANote" style="font-size:0.82rem;color:var(--text-sub);max-width:500px;line-height:1.5;"></div>
+            <button class="btn-primary" onclick="AMD.goToStep(4)" style="padding:14px 28px;font-size:0.95rem;flex-shrink:0;">
+                Open Treatment Optimizer
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     STEP 4: TREATMENT OPTIMIZER
+════════════════════════════════════════════════════════ -->
+<div class="step-pane" id="step4">
+    <div class="page-inner">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="AMD.goToStep(3)" style="padding:8px 16px;font-size:0.8rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Prognosis
+            </button>
+            <div>
+                <h2 style="font-size:1.2rem;font-weight:800;color:var(--text);">Treatment Optimizer</h2>
+                <p style="font-size:0.78rem;color:var(--text-sub);">Configure Anti-VEGF plan and model predicted VA response vs baseline</p>
+            </div>
+        </div>
+
+        <!-- Conversion banner (shown only if patient not currently Wet) -->
+        <div id="conversionBanner" style="display:none;margin-top:12px;"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5" style="margin-top:20px;">
+
+            <!-- LEFT: Configurator -->
+            <div class="space-y-4" id="treatmentConfig">
+                <!-- Rendered by renderTreatmentConfigurator() -->
+            </div>
+
+            <!-- RIGHT: Charts -->
+            <div class="lg:col-span-2 space-y-5" id="treatmentCharts">
+                <!-- Rendered by renderTreatmentCharts() -->
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT — WIZARD CONTROLLER
+════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════
+// GLOBAL STATE
+// ══════════════════════════════════════════════════════════
+window.AMD = {
+    currentStep:    1,
+    patients:       [],          // Array of 50 simulated patients
+    selectedPatient: null,       // Patient object
+    selectedVisit:   null,       // Visit object (as of date)
+    conversionDate:  null,       // Date of Wet AMD conversion (simulated or actual)
+    treatment: {
+        agent:    'Aflibercept',
+        interval: 'Monthly',
+        pdt:      false,
+    },
+    charts: {},                  // Holds Chart.js instances by key
+
+    // ── Navigation ──────────────────────────────────────
+    goToStep(n) {
+        if (n < 1 || n > 4) return;
+        // Validation gates
+        if (n >= 2 && !AMD.selectedPatient) { alert('Please select a patient first.'); return; }
+        if (n >= 2 && !AMD.selectedVisit)   { alert('Please select a visit date first.'); return; }
+
+        document.querySelectorAll('.step-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById('step' + n).classList.add('active');
+        AMD.currentStep = n;
+        AMD.renderStepTrack();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Render content for each step on arrival
+        if (n === 2) { AMD.renderProfileLeft(); AMD.renderProfileCharts(); }
+        if (n === 3) { AMD.renderPrognosisCharts(); }
+        if (n === 4) { AMD.prepareConversionContext(); AMD.renderTreatmentConfigurator(); AMD.renderTreatmentCharts(); }
+    },
+
+    loadPatient() {
+        const p = AMD.selectedPatient;
+        const vDate = document.getElementById('visitDateSelect').value;
+        if (!p) { alert('Please search for and select a patient.'); return; }
+        if (!vDate) { alert('Please select a visit date.'); return; }
+        AMD.selectedVisit = p.visits.find(v => v.date === vDate) || p.visits[p.visits.length - 1];
+        AMD.goToStep(2);
+    },
+
+    // ── Progress bar ─────────────────────────────────────
+    renderStepTrack() {
+        const steps = [
+            { n: 1, label: 'Patient Search' },
+            { n: 2, label: 'Patient Profile' },
+            { n: 3, label: 'Prognosis Navigator' },
+            { n: 4, label: 'Treatment Optimizer' },
+        ];
+        const cur = AMD.currentStep;
+        let html = '';
+        steps.forEach((s, i) => {
+            const state = s.n < cur ? 'done' : s.n === cur ? 'active' : 'pending';
+            const canClick = s.n < cur && AMD.selectedPatient && AMD.selectedVisit;
+            html += `<div class="step-item ${canClick ? 'step-done' : ''}" ${canClick ? `onclick="AMD.goToStep(${s.n})"` : ''}>
+                <div class="step-num ${state}">${state === 'done' ? '✓' : s.n}</div>
+                <span class="step-label ${state}">${s.label}</span>
+            </div>`;
+            if (i < steps.length - 1) {
+                html += `<div class="step-connector ${s.n < cur ? 'done' : ''}"></div>`;
+            }
+        });
+        document.getElementById('stepTrack').innerHTML = html;
+    },
+
+    // ── Destroy + re-create a chart safely ───────────────
+    destroyChart(key) {
+        if (AMD.charts[key]) { AMD.charts[key].destroy(); delete AMD.charts[key]; }
+    },
+
+    // ── Destroy all charts ────────────────────────────────
+    destroyAll() {
+        Object.keys(AMD.charts).forEach(k => AMD.destroyChart(k));
+    },
+};
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    AMD.patients = generatePatients();
+    initSearch();
+    AMD.goToStep(1);
+    AMD.renderStepTrack();
+
+    document.getElementById('loadRandomBtn').addEventListener('click', e => {
+        e.preventDefault();
+        const p = AMD.patients[Math.floor(Math.random() * AMD.patients.length)];
+        AMD.selectedPatient = p;
+        document.getElementById('emrnInput').value = p.emrn;
+        populateVisitDates(p);
+        document.getElementById('visitDateSelect').value = p.visits[p.visits.length - 1].date;
+        document.getElementById('visitDateWrap').style.display = '';
+        renderSelectedPill(p);
+    });
+});
+
+const AMD_STAGES       = { 0: 'Early AMD', 1: 'Intermediate AMD', 2: 'Wet AMD (nAMD)' };
+const AMD_STAGE_BADGE  = { 0: 'badge-early', 1: 'badge-inter', 2: 'badge-wet' };
+const AMD_STAGE_DOT    = { 0: '#eab308', 1: '#f97316', 2: '#ef4444' };
+
+// ══════════════════════════════════════════════════════════
+// STEP 1 — PATIENT SEARCH
+// ══════════════════════════════════════════════════════════
+function initSearch() {
+    const input    = document.getElementById('emrnInput');
+    const dropdown = document.getElementById('searchDropdown');
+
+    input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        if (!q) { dropdown.style.display = 'none'; return; }
+
+        const matches = AMD.patients.filter(p =>
+            p.emrn.toLowerCase().includes(q)
+        ).slice(0, 10);
+
+        if (!matches.length) { dropdown.style.display = 'none'; return; }
+
+        dropdown.innerHTML = matches.map(p => {
+            const lastVisit = p.visits[p.visits.length - 1];
+            const stageBadge = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${AMD_STAGE_DOT[lastVisit.stage]};margin-right:4px;"></span>`;
+            return `<div class="search-option" data-idx="${p.idx}">
+                <div>
+                    <div class="search-emrn">${p.emrn}</div>
+                    <div class="search-meta">${p.gender}, ${p.age} yrs · ${p.race}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.75rem;font-weight:600;color:#374151;">${stageBadge}${AMD_STAGES[lastVisit.stage]}</div>
+                    <div class="search-meta">${p.visits.length} visits</div>
+                </div>
+            </div>`;
+        }).join('');
+
+        dropdown.style.display = '';
+    });
+
+    // Click a result
+    dropdown.addEventListener('click', e => {
+        const opt = e.target.closest('.search-option');
+        if (!opt) return;
+        const p = AMD.patients[parseInt(opt.dataset.idx)];
+        selectPatient(p);
+    });
+
+    // Close on outside click
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.search-wrap')) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    input.addEventListener('focus', () => {
+        if (input.value.trim() && dropdown.innerHTML) dropdown.style.display = '';
+    });
+}
+
+function selectPatient(p) {
+    AMD.selectedPatient = p;
+    const input    = document.getElementById('emrnInput');
+    const dropdown = document.getElementById('searchDropdown');
+    input.value = p.emrn;
+    dropdown.style.display = 'none';
+    populateVisitDates(p);
+    renderSelectedPill(p);
+}
+
+function populateVisitDates(p) {
+    const sel = document.getElementById('visitDateSelect');
+    sel.innerHTML = [...p.visits].reverse().map(v =>
+        `<option value="${v.date}">${v.date} — ${AMD_STAGES[v.stage]}</option>`
+    ).join('');
+    document.getElementById('visitDateWrap').style.display = '';
+    // Default to most recent
+    sel.value = p.visits[p.visits.length - 1].date;
+}
+
+function renderSelectedPill(p) {
+    const el = document.getElementById('selectedPatientPill');
+    const lastStage = AMD_STAGES[p.visits[p.visits.length - 1].stage];
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--teal-light);border-radius:8px;border:1px solid var(--teal-mid);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        <span style="font-size:0.8rem;font-weight:700;color:var(--teal-dark);">${p.emrn}</span>
+        <span style="font-size:0.78rem;color:var(--teal-dark);">${p.gender}, ${p.age} yrs · ${lastStage}</span>
+    </div>`;
+    el.style.display = '';
+}
+</script>
+
+<!-- DATA + SIMULATION + RENDERING scripts injected in subsequent tasks -->
+<script id="dataScript">
+// ══════════════════════════════════════════════════════════
+// SEEDED RNG — mulberry32 (reproducible patient generation)
+// ══════════════════════════════════════════════════════════
+function mulberry32(seed) {
+    return function() {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+const rng = mulberry32(0xDEADBEEF);
+function pick(arr)  { return arr[Math.floor(rng() * arr.length)]; }
+function rand(a, b) { return a + rng() * (b - a); }
+function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+function randn()    { // Box-Muller normal
+    let u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// ══════════════════════════════════════════════════════════
+// PATIENT GENERATOR
+// ══════════════════════════════════════════════════════════
+function generatePatients() {
+    const patients = [];
+    for (let i = 0; i < 50; i++) {
+        const p = buildPatient(i);
+        patients.push(p);
+    }
+    return patients;
+}
+
+function buildPatient(idx) {
+    // ── Demographics ─────────────────────────────────────
+    const age       = randInt(55, 86);
+    const gender    = rng() < 0.52 ? 'Female' : 'Male';
+    const raceRoll  = rng();
+    const race      = raceRoll < 0.60 ? 'White' : raceRoll < 0.80 ? 'Black' : raceRoll < 0.92 ? 'Asian' : 'Other';
+    const ethnicity = rng() < 0.80 ? 'Not Hispanic' : 'Hispanic';
+    const sesRoll   = rng();
+    const ses       = sesRoll < 0.28 ? 'Low' : sesRoll < 0.68 ? 'Middle' : 'High';
+    const familyHx  = rng() < 0.30;
+
+    // EMRN: E1 + 8 digits, deterministic from index
+    const emrn = 'E1' + String(100000000 + Math.floor(rng() * 899999999)).slice(0, 8);
+
+    // ── AMD natural history ──────────────────────────────
+    // 0=Early, 1=Intermediate, 2=Wet
+    const initStageRoll = rng();
+    const initStage = initStageRoll < 0.40 ? 0 : initStageRoll < 0.75 ? 1 : 2;
+
+    // How long ago was AMD diagnosed (2-8 years before today)
+    const today = new Date();
+    const dxYearsAgo = rand(2, 8);
+    const dxDate = new Date(today);
+    dxDate.setFullYear(dxDate.getFullYear() - dxYearsAgo);
+
+    // ── Comorbidities ─────────────────────────────────────
+    const hasDM     = rng() < 0.30;
+    const hasHTN    = rng() < 0.55;
+    const hasCancer = rng() < 0.08;
+    const hasUveitis= rng() < 0.05;
+    const hasCataract = rng() < 0.45;
+    const lensStatus = hasCataract && rng() < 0.6 ? 'Pseudophakic' : 'Phakic';
+
+    // ── Lifestyle ─────────────────────────────────────────
+    const smokingOptions = ['Never', 'Current', 'Quit <6 months', 'Quit >6 months'];
+    const smokingWeights = [0.45, 0.12, 0.08, 0.35];
+    const smoking = weightedPick(smokingOptions, smokingWeights);
+    const alcohol  = pick(['None', 'Moderate', 'Heavy']);
+    const exercise = pick(['Sedentary', 'Light', 'Moderate', 'Active']);
+    const diet     = pick(['Poor', 'Average', 'Mediterranean-style']);
+    const AREDS    = rng() < 0.55;
+
+    // ── Baseline VA (affected eye, LogMAR) ────────────────
+    // Early: 0.0-0.2, Intermediate: 0.1-0.4, Wet: 0.3-1.0
+    const vaBaseRanges = [[0.0, 0.20], [0.10, 0.40], [0.30, 1.0]];
+    const vaBase = round2(rand(...vaBaseRanges[initStage]) + Math.abs(randn() * 0.05));
+    const vaFellowBase = round2(Math.max(0, rand(0.0, 0.3) + randn() * 0.04));
+
+    // ── Generate longitudinal visits ──────────────────────
+    const nVisits = randInt(5, 15);
+    const visits  = buildVisits({
+        nVisits, dxDate, today, initStage, vaBase, vaFellowBase,
+        age, hasDM, hasCancer, hasHTN, smoking, AREDS, familyHx
+    });
+
+    return {
+        idx, emrn, age, gender, race, ethnicity, ses, familyHx,
+        dxDate: fmtDate(dxDate),
+        hasDM, hasHTN, hasCancer, hasUveitis, hasCataract, lensStatus,
+        smoking, alcohol, exercise, diet, AREDS,
+        initStage,
+        vaBase, vaFellowBase,
+        visits,
+    };
+}
+
+function buildVisits({ nVisits, dxDate, today, initStage, vaBase, vaFellowBase,
+                        age, hasDM, hasCancer, hasHTN, smoking, AREDS, familyHx }) {
+    // Spread visits from dx date to today
+    const totalDays = (today - dxDate) / 86400000;
+    const visits    = [];
+    let stage = initStage;
+    let va    = vaBase;
+    let vaFel = vaFellowBase;
+
+    // Natural slope per stage (LogMAR/year)
+    const naturalSlope = [0.010, 0.032, 0.150];
+
+    // Risk modifiers
+    const smokingMod = { 'Never': 1.0, 'Quit >6 months': 1.1, 'Quit <6 months': 1.3, 'Current': 1.5 };
+    const ageMod     = age > 75 ? 1.3 : age > 70 ? 1.15 : 1.0;
+    const dmMod      = hasDM ? 1.2 : 1.0;
+    const AREDSMod   = AREDS ? 0.75 : 1.0;
+    const famMod     = familyHx ? 1.2 : 1.0;
+
+    // Probability of stage progression per year (AREDS2-calibrated)
+    const progressProb = {
+        0: 0.05  * smokingMod[smoking] * ageMod * AREDSMod * famMod, // Early→Intermediate/year
+        1: 0.12  * smokingMod[smoking] * ageMod * AREDSMod * famMod, // Inter→Wet/year
+    };
+
+    // Baseline IOP, BP, BMI
+    let iop    = round2(rand(12, 18) + randn());
+    let bpSys  = Math.round(rand(hasHTN ? 130 : 115, hasHTN ? 165 : 135) + randn() * 5);
+    let bpDia  = Math.round(rand(70, 90) + randn() * 4);
+    let bmi    = round2(rand(22, 34) + randn() * 1.5);
+
+    const dayStep = totalDays / (nVisits - 1);
+
+    for (let i = 0; i < nVisits; i++) {
+        const visitDate = new Date(+dxDate + i * dayStep * 86400000);
+        const yearsSinceDx = (i * dayStep) / 365;
+
+        // Possibly progress stage
+        if (stage < 2) {
+            const pProgress = progressProb[stage] * (dayStep / 365);
+            if (rng() < pProgress) stage = Math.min(2, stage + 1);
+        }
+
+        // VA decline
+        const slope = naturalSlope[stage] * smokingMod[smoking] * ageMod * dmMod * AREDSMod;
+        const yearFrac = dayStep / 365;
+        va    = round2(Math.min(3.0, va + slope * yearFrac + randn() * 0.02));
+        vaFel = round2(Math.min(3.0, Math.max(0, vaFel + 0.008 * yearFrac + randn() * 0.01)));
+
+        // IOP small drift
+        iop   = round2(Math.max(8, Math.min(28, iop + randn() * 0.5)));
+        // BP drift
+        bpSys = Math.max(100, Math.min(200, bpSys + Math.round(randn() * 3)));
+        bpDia = Math.max(60,  Math.min(110, bpDia + Math.round(randn() * 2)));
+        // BMI drift
+        bmi   = round2(Math.max(18, Math.min(42, bmi + randn() * 0.3)));
+
+        // Labs (30% missingness)
+        const labs = {};
+        if (rng() > 0.3) labs.hba1c   = round2(hasDM ? rand(6.5, 10.0) : rand(4.8, 6.2));
+        if (rng() > 0.3) labs.glucose  = Math.round(hasDM ? rand(110, 220) : rand(75, 110));
+        if (rng() > 0.3) labs.gfr      = Math.round(rand(45, 110) + randn() * 5);
+        if (rng() > 0.3) labs.crp      = round2(rand(0.2, 4.5) + randn() * 0.3);
+        if (rng() > 0.3) labs.esr      = Math.round(rand(5, 55) + randn() * 3);
+
+        // Treatment (if Wet)
+        const treatment = stage === 2 ? {
+            agent: pick(['Aflibercept', 'Ranibizumab', 'Bevacizumab', 'Faricimab']),
+            injections: randInt(1, 3),
+        } : null;
+
+        visits.push({
+            date:      fmtDate(visitDate),
+            stage,
+            va,       vaFellow: vaFel,
+            iop,      iopFellow: round2(Math.max(8, Math.min(24, rand(11, 17) + randn()))),
+            bpSys,    bpDia,
+            bmi,
+            labs,
+            treatment,
+        });
+    }
+    return visits;
+}
+
+// ── Helpers ──────────────────────────────────────────────
+function weightedPick(arr, weights) {
+    const r = rng();
+    let cum = 0;
+    for (let i = 0; i < arr.length; i++) {
+        cum += weights[i];
+        if (r < cum) return arr[i];
+    }
+    return arr[arr.length - 1];
+}
+function fmtDate(d) {
+    return d.toISOString().slice(0, 10);
+}
+function round2(n) { return Math.round(n * 100) / 100; }
+
+// LogMAR → Snellen helper used throughout the app
+function logmarToSnellen(lm) {
+    if (lm <= 0.0)  return '20/20';
+    if (lm <= 0.1)  return '20/25';
+    if (lm <= 0.2)  return '20/32';
+    if (lm <= 0.3)  return '20/40';
+    if (lm <= 0.4)  return '20/50';
+    if (lm <= 0.5)  return '20/63';
+    if (lm <= 0.6)  return '20/80';
+    if (lm <= 0.7)  return '20/100';
+    if (lm <= 0.8)  return '20/125';
+    if (lm <= 1.0)  return '20/200';
+    if (lm <= 1.3)  return '20/400';
+    return 'CF/HM';
+}
+</script>
+<script id="profileScript">
+// ══════════════════════════════════════════════════════════
+// STEP 2 — PATIENT PROFILE
+// ══════════════════════════════════════════════════════════
+
+AMD.renderProfileLeft = function() {
+    const p = AMD.selectedPatient;
+    const v = AMD.selectedVisit;
+    const stageBadge = `<span class="badge ${AMD_STAGE_BADGE[v.stage]}" style="font-size:0.8rem;padding:4px 12px;">${AMD_STAGES[v.stage]}</span>`;
+    const dxDateObj  = new Date(p.dxDate);
+    const selDateObj = new Date(v.date);
+    const yrs        = ((selDateObj - dxDateObj) / (365.25 * 86400000)).toFixed(1);
+    const initials   = (p.gender === 'Female' ? 'F' : 'M') + p.age;
+
+    // Update header title
+    document.getElementById('step2Title').textContent = `Visit: ${v.date}`;
+
+    document.getElementById('profileLeft').innerHTML = `
+    <!-- Patient hero -->
+    <div class="section-card">
+        <div class="patient-hero">
+            <div class="patient-avatar">${initials}</div>
+            <div style="flex:1;">
+                <div class="patient-emrn">${p.emrn}</div>
+                <div class="patient-name">${p.gender}, ${p.age} years old</div>
+                <div class="patient-meta">${p.race} · ${p.ethnicity}</div>
+                <div style="margin-top:8px;">${stageBadge}</div>
+            </div>
+        </div>
+        <div class="section-body" style="padding-top:12px;">
+            <div class="kv-row"><span class="kv-key">AMD Diagnosis</span><span class="kv-val">${p.dxDate}</span></div>
+            <div class="kv-row"><span class="kv-key">Years with AMD</span><span class="kv-val">${yrs} yrs</span></div>
+            <div class="kv-row"><span class="kv-key">Family History</span><span class="kv-val">${p.familyHx ? '✓ Yes' : '✗ No'}</span></div>
+            <div class="kv-row"><span class="kv-key">Socioeconomic Status</span><span class="kv-val">${p.ses}</span></div>
+            <div class="kv-row"><span class="kv-key">VA (affected eye)</span><span class="kv-val">${v.va.toFixed(2)} LogMAR · ${logmarToSnellen(v.va)}</span></div>
+            <div class="kv-row"><span class="kv-key">VA (fellow eye)</span><span class="kv-val">${v.vaFellow.toFixed(2)} LogMAR · ${logmarToSnellen(v.vaFellow)}</span></div>
+        </div>
+    </div>
+
+    <!-- Lifestyle -->
+    <div class="section-card">
+        <div class="section-header no-collapse">
+            <div class="section-icon" style="background:#fef9c3;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+            <span class="section-title">Lifestyle</span>
+        </div>
+        <div class="section-body">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${lifestylePill('Smoking', p.smoking, p.smoking==='Never'||p.smoking==='Quit >6 months' ? 'green' : p.smoking==='Current' ? 'red' : 'orange')}
+                ${lifestylePill('Alcohol', p.alcohol, p.alcohol==='None'?'green':p.alcohol==='Moderate'?'gray':'red')}
+                ${lifestylePill('Exercise', p.exercise, p.exercise==='Active'||p.exercise==='Moderate'?'green':p.exercise==='Light'?'gray':'orange')}
+                ${lifestylePill('Diet', p.diet, p.diet==='Mediterranean-style'?'green':p.diet==='Average'?'gray':'orange')}
+                ${lifestylePill('AREDS Supplement', p.AREDS?'Yes':'No', p.AREDS?'teal':'gray')}
+            </div>
+        </div>
+    </div>
+
+    <!-- Comorbidities -->
+    <div class="section-card">
+        <div class="section-header no-collapse">
+            <div class="section-icon" style="background:#fee2e2;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+            <span class="section-title">Systemic &amp; Ocular History</span>
+        </div>
+        <div class="section-body">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${comorPill('Diabetes', p.hasDM)}
+                ${comorPill('Hypertension', p.hasHTN)}
+                ${comorPill('Cancer', p.hasCancer)}
+                ${comorPill('Uveitis', p.hasUveitis)}
+                ${comorPill('Cataract', p.hasCataract)}
+            </div>
+            <div style="margin-top:12px;">
+                <div class="kv-row"><span class="kv-key">Lens Status</span><span class="kv-val">${p.lensStatus}</span></div>
+                <div class="kv-row"><span class="kv-key">IOP (this visit)</span><span class="kv-val">${v.iop} / ${v.iopFellow} mmHg</span></div>
+            </div>
+        </div>
+    </div>
+    `;
+};
+
+function lifestylePill(label, val, color) {
+    const colors = {
+        green:'badge-green', red:'badge-red', orange:'badge-orange',
+        gray:'badge-gray', teal:'badge-teal'
+    };
+    return `<span class="badge ${colors[color]||'badge-gray'}" style="font-size:0.75rem;">${label}: ${val}</span>`;
+}
+function comorPill(label, has) {
+    return `<span class="badge ${has?'badge-red':'badge-green'}" style="font-size:0.75rem;">${has?'✓':'✗'} ${label}</span>`;
+}
+
+// ── RIGHT COLUMN: Charts ──────────────────────────────────
+AMD.renderProfileCharts = function() {
+    const p   = AMD.selectedPatient;
+    const v   = AMD.selectedVisit;
+    const vis = p.visits.filter(vv => vv.date <= v.date);
+
+    const dates   = vis.map(vv => vv.date);
+    const vaAff   = vis.map(vv => vv.va);
+    const vaFel   = vis.map(vv => vv.vaFellow);
+    const iops    = vis.map(vv => vv.iop);
+    const iopsF   = vis.map(vv => vv.iopFellow);
+    const bpSys   = vis.map(vv => vv.bpSys);
+    const bpDia   = vis.map(vv => vv.bpDia);
+    const bmis    = vis.map(vv => vv.bmi);
+
+    AMD.destroyChart('va'); AMD.destroyChart('iop'); AMD.destroyChart('bp'); AMD.destroyChart('bmi');
+
+    document.getElementById('profileRight').innerHTML = `
+    <div class="chart-wrap">
+        <div class="chart-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg>
+            Visual Acuity (LogMAR)
+            <span class="chart-subtitle">— lower is better</span>
+        </div>
+        <canvas id="vaChart" height="120"></canvas>
+        <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#6b7280;"><span style="display:inline-block;width:18px;height:2px;background:#0d9488;"></span>Affected Eye</div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#6b7280;"><span style="display:inline-block;width:18px;height:2px;background:#99f6e4;"></span>Fellow Eye</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="chart-wrap">
+            <div class="chart-title">IOP (mmHg)</div>
+            <canvas id="iopChart" height="110"></canvas>
+        </div>
+        <div class="chart-wrap">
+            <div class="chart-title">Blood Pressure (mmHg)</div>
+            <canvas id="bpChart" height="110"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-wrap">
+        <div class="chart-title">BMI</div>
+        <canvas id="bmiChart" height="80"></canvas>
+    </div>
+
+    <div class="section-card">
+        <div class="section-header no-collapse">
+            <div class="section-icon" style="background:#ede9fe;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg></div>
+            <span class="section-title">Laboratory Values</span>
+        </div>
+        <div class="section-body">
+            <div class="lab-tabs" id="labTabs">
+                ${buildLabTabs(vis)}
+            </div>
+            <div id="labChartWrap" style="position:relative;">
+                <canvas id="labChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    `;
+
+    // VA chart (inverted Y = better up)
+    AMD.charts.va = new Chart(document.getElementById('vaChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [
+                { label: 'Affected Eye', data: vaAff, borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.08)', borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#0d9488', tension: 0.3, fill: true },
+                { label: 'Fellow Eye',   data: vaFel, borderColor: '#99f6e4', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 3, pointBackgroundColor: '#99f6e4', tension: 0.3, borderDash: [4,3] },
+            ]
+        },
+        options: {
+            responsive: true, animation: { duration: 600 },
+            scales: {
+                y: { reverse: true, title: { display: true, text: 'LogMAR (↑ = worse)', font: { size: 10 } }, min: -0.1, max: 1.5,
+                    ticks: { callback: v => v.toFixed(1) + ' (' + logmarToSnellen(v) + ')', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 }, maxRotation: 30 } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} LogMAR (${logmarToSnellen(ctx.parsed.y)})`
+                    }
+                }
+            }
+        }
+    });
+
+    // IOP chart
+    AMD.charts.iop = new Chart(document.getElementById('iopChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [
+                { label: 'Affected Eye', data: iops,  borderColor: '#f59e0b', borderWidth: 2, pointRadius: 3, tension: 0.3 },
+                { label: 'Fellow Eye',   data: iopsF, borderColor: '#fcd34d', borderWidth: 1.5, pointRadius: 2, tension: 0.3, borderDash: [3,3] },
+            ]
+        },
+        options: {
+            responsive: true, animation: { duration: 500 },
+            scales: {
+                y: { min: 6, max: 30, title: { display: true, text: 'mmHg', font: { size: 9 } },
+                    ticks: { font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 }, maxRotation: 30 } }
+            },
+            plugins: {
+                legend: { display: false },
+                annotation: { annotations: {
+                    normalLow:  { type: 'box', yMin: 10, yMax: 10, borderColor: '#86efac', borderWidth: 1, borderDash: [3,3] },
+                    normalHigh: { type: 'box', yMin: 21, yMax: 21, borderColor: '#fca5a5', borderWidth: 1, borderDash: [3,3] },
+                }}
+            }
+        }
+    });
+
+    // BP chart
+    AMD.charts.bp = new Chart(document.getElementById('bpChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [
+                { label: 'Systolic',  data: bpSys, borderColor: '#ef4444', borderWidth: 2, pointRadius: 3, tension: 0.3 },
+                { label: 'Diastolic', data: bpDia, borderColor: '#f97316', borderWidth: 1.5, pointRadius: 2, tension: 0.3, borderDash: [4,3] },
+            ]
+        },
+        options: {
+            responsive: true, animation: { duration: 500 },
+            scales: {
+                y: { min: 55, max: 200, ticks: { font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 }, maxRotation: 30 } }
+            },
+            plugins: {
+                legend: { labels: { font: { size: 9 }, boxWidth: 12 } },
+                annotation: { annotations: {
+                    sysLine: { type: 'line', yMin: 130, yMax: 130, borderColor: '#fca5a5', borderWidth: 1, borderDash: [3,3] },
+                    diaLine: { type: 'line', yMin: 80,  yMax: 80,  borderColor: '#fdba74', borderWidth: 1, borderDash: [3,3] },
+                }}
+            }
+        }
+    });
+
+    // BMI chart
+    AMD.charts.bmi = new Chart(document.getElementById('bmiChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{ label: 'BMI', data: bmis, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.06)', borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true }]
+        },
+        options: {
+            responsive: true, animation: { duration: 500 },
+            scales: {
+                y: { min: 15, max: 45, ticks: { font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 }, maxRotation: 30 } }
+            },
+            plugins: {
+                legend: { display: false },
+                annotation: { annotations: {
+                    normal: { type: 'box', yMin: 18.5, yMax: 24.9, backgroundColor: 'rgba(134,239,172,0.07)', borderWidth: 0 },
+                    overw:  { type: 'box', yMin: 25.0, yMax: 29.9, backgroundColor: 'rgba(253,230,138,0.07)', borderWidth: 0 },
+                    obese:  { type: 'box', yMin: 30.0, yMax: 45,   backgroundColor: 'rgba(252,165,165,0.07)', borderWidth: 0 },
+                }}
+            }
+        }
+    });
+
+    // Init first lab tab
+    const firstLab = getAvailableLabs(vis)[0];
+    if (firstLab) renderLabChart(vis, firstLab);
+    setupLabTabs(vis);
+};
+
+function getAvailableLabs(vis) {
+    const keys = ['hba1c','glucose','gfr','crp','esr'];
+    return keys.filter(k => vis.some(v => v.labs && v.labs[k] !== undefined));
+}
+
+function buildLabTabs(vis) {
+    const labs = getAvailableLabs(vis);
+    const labMeta = {
+        hba1c:   { label: 'HbA1c',    norm: [4.0, 6.4]  },
+        glucose:  { label: 'Glucose',  norm: [70, 110]   },
+        gfr:      { label: 'GFR',      norm: [60, 120]   },
+        crp:      { label: 'CRP',      norm: [0, 1.0]    },
+        esr:      { label: 'ESR',      norm: [0, 20]     },
+    };
+    return labs.map((k, i) => {
+        const hasAbnormal = vis.some(v => {
+            const val = v.labs && v.labs[k];
+            if (val === undefined) return false;
+            const [lo, hi] = labMeta[k].norm;
+            return val < lo || val > hi;
+        });
+        return `<button class="lab-tab ${i===0?'active':''}" data-lab="${k}" onclick="AMD._labTabClick(this, '${k}')">
+            ${labMeta[k].label}
+            ${hasAbnormal ? `<span class="lab-dot" style="background:#ef4444;"></span>` : ''}
+        </button>`;
+    }).join('');
+}
+
+AMD._labTabClick = function(btn, labKey) {
+    document.querySelectorAll('.lab-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const p   = AMD.selectedPatient;
+    const v   = AMD.selectedVisit;
+    const vis = p.visits.filter(vv => vv.date <= v.date);
+    renderLabChart(vis, labKey);
+};
+
+function setupLabTabs(vis) { /* tabs already wired via onclick */ }
+
+const LAB_META = {
+    hba1c:   { label: 'HbA1c (%)',   color: '#6d28d9', normLo: 4.0, normHi: 6.4,  yMin: 3, yMax: 12  },
+    glucose:  { label: 'Glucose (mg/dL)', color: '#db2777', normLo: 70,  normHi: 110, yMin: 50, yMax: 250 },
+    gfr:      { label: 'GFR (mL/min/1.73m²)', color: '#0284c7', normLo: 60,  normHi: 120, yMin: 20, yMax: 140 },
+    crp:      { label: 'CRP (mg/L)', color: '#dc2626', normLo: 0,   normHi: 1.0, yMin: 0, yMax: 6    },
+    esr:      { label: 'ESR (mm/hr)', color: '#9333ea', normLo: 0,   normHi: 20,  yMin: 0, yMax: 70   },
+};
+
+function renderLabChart(vis, labKey) {
+    AMD.destroyChart('lab');
+    const meta   = LAB_META[labKey];
+    const pts    = vis.filter(v => v.labs && v.labs[labKey] !== undefined);
+    const dates  = pts.map(v => v.date);
+    const values = pts.map(v => v.labs[labKey]);
+
+    const ctx = document.getElementById('labChart');
+    AMD.charts.lab = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: meta.label, data: values,
+                borderColor: meta.color, backgroundColor: meta.color + '15',
+                borderWidth: 2, pointRadius: 4, tension: 0.3, fill: true,
+                pointBackgroundColor: values.map(v =>
+                    (v < meta.normLo || v > meta.normHi) ? '#ef4444' : meta.color
+                ),
+            }]
+        },
+        options: {
+            responsive: true, animation: { duration: 400 },
+            scales: {
+                y: { min: meta.yMin, max: meta.yMax, title: { display: true, text: meta.label, font: { size: 9 } }, ticks: { font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 }, maxRotation: 30 } }
+            },
+            plugins: {
+                legend: { display: false },
+                annotation: { annotations: {
+                    normBand: { type: 'box', yMin: meta.normLo, yMax: meta.normHi, backgroundColor: 'rgba(134,239,172,0.08)', borderWidth: 0 },
+                    normLo: { type: 'line', yMin: meta.normLo, yMax: meta.normLo, borderColor: '#86efac', borderWidth: 1, borderDash: [3,3] },
+                    normHi: { type: 'line', yMin: meta.normHi, yMax: meta.normHi, borderColor: '#fca5a5', borderWidth: 1, borderDash: [3,3] },
+                }}
+            }
+        }
+    });
+}
+</script>
+<script id="prognosisScript">
+// ══════════════════════════════════════════════════════════
+// STEP 3 — PROGNOSIS NAVIGATOR
+// ══════════════════════════════════════════════════════════
+
+// ── Model: VA Forecast ───────────────────────────────────
+function computeVAForecast(patient, visitIdx, horizonYears) {
+    const vis    = patient.visits.slice(0, visitIdx + 1);
+    const stage  = vis[vis.length - 1].stage;
+    const vaLast = vis[vis.length - 1].va;
+
+    // Stage-calibrated base slope (LogMAR/year) — primary driver
+    const baseSlope = [0.008, 0.025, 0.100][stage];
+
+    // Risk modifiers
+    const sm = { 'Never':1.0, 'Quit >6 months':1.05, 'Quit <6 months':1.20, 'Current':1.40 };
+    const riskMod = (sm[patient.smoking]||1)
+                  * (patient.hasDM ? 1.12 : 1)
+                  * (patient.AREDS ? 0.82 : 1)
+                  * (patient.age > 75 ? 1.15 : patient.age > 70 ? 1.08 : 1);
+
+    // Historical slope as small secondary adjustment (30% weight, 70% stage-based)
+    const recent = vis.slice(-3);
+    let histSlope = baseSlope;
+    if (recent.length >= 2) {
+        const dx = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / (365.25*86400000);
+        const dy = recent[recent.length-1].va - recent[0].va;
+        if (dx > 0) histSlope = Math.max(0, dy / dx);
+    }
+    const slope = (baseSlope * 0.70 + Math.min(histSlope, baseSlope * 2.5) * 0.30) * riskMod;
+
+    // Generate monthly forecast points
+    const startDate = new Date(vis[vis.length-1].date);
+    const months    = horizonYears * 12;
+    const forecast  = [];
+    const confLow   = [];
+    const confHigh  = [];
+    const flags     = [];
+
+    // Reproducible small perturbation (not truly random)
+    const seed = patient.idx * 0.037;
+
+    let prevSlope3m = 0;
+    let flagCount   = 0;
+
+    for (let m = 0; m <= months; m++) {
+        const t = m / 12;
+        const perturbation = Math.sin((m + seed * 10) * 0.6) * 0.006;
+        // Hard floor at 2.0 LogMAR (legal blindness threshold for clinical displays)
+        const va = Math.min(2.0, Math.max(0, vaLast + slope * t + perturbation));
+        const ci = 0.03 + t * 0.025;
+
+        forecast.push(round2(va));
+        confLow.push(round2(Math.max(0, va - ci)));
+        confHigh.push(round2(Math.min(2.0, va + ci)));
+
+        // Flags: only after month 6, max 2 total, meaningful thresholds only
+        if (m >= 6 && flagCount < 2) {
+            // 3-month rolling slope
+            if (m >= 3) prevSlope3m = (forecast[m] - forecast[m - 3]) / 3;
+            // Flag if 3-month slope is accelerating (>0.012 LogMAR/month = ~0.15/yr)
+            if (m >= 12 && prevSlope3m > 0.012 && flagCount === 0) {
+                flags.push({
+                    monthIdx: m,
+                    label: '📍 Follow-up recommended',
+                    detail: `VA declining at ${(prevSlope3m * 12).toFixed(2)} LogMAR/yr over past 3 months. Consider urgent review within 4 weeks.`,
+                    urgency: 'high'
+                });
+                flagCount++;
+            }
+            // Flag at 2-year mark if cumulative decline >0.2 LogMAR
+            if (m === 24 && (va - vaLast) > 0.20 && flagCount < 2) {
+                flags.push({
+                    monthIdx: 24,
+                    label: '📍 2-year imaging review',
+                    detail: `VA has declined ${((va - vaLast).toFixed(2))} LogMAR over 2 years. Imaging update recommended.`,
+                    urgency: 'low'
+                });
+                flagCount++;
+            }
+        }
+    }
+
+    const labels = [];
+    for (let m = 0; m <= months; m++) {
+        const d = new Date(startDate);
+        d.setMonth(d.getMonth() + m);
+        labels.push(fmtDate(d));
+    }
+
+    return { labels, forecast, confLow, confHigh, flags, slope };
+}
+
+// ── Model: AMD Progression Risk ──────────────────────────
+function computeProgressionRisk(patient, visitIdx, horizonYears) {
+    const vis   = patient.visits.slice(0, visitIdx + 1);
+    const stage = vis[vis.length - 1].stage;
+
+    // AREDS2-calibrated annual probabilities
+    const sm  = { 'Never':1.0,'Quit >6 months':1.10,'Quit <6 months':1.30,'Current':1.50 };
+    const mod = (sm[patient.smoking]||1)
+              * (patient.age>75?1.35:patient.age>70?1.20:1.0)
+              * (patient.familyHx?1.20:1.0)
+              * (patient.AREDS?0.75:1.0)
+              * (patient.hasDM?1.10:1.0);
+
+    // Annual base probabilities (from AREDS2 literature)
+    const pInterAnnual = stage === 0 ? 0.07 * mod : 0;         // Early → Intermediate
+    const pGAAnnual    = stage <= 1  ? 0.04 * mod : 0.08*mod; // → Geographic Atrophy
+    const pWetAnnual   = stage === 0 ? 0.012*mod  : stage===1 ? 0.035*mod : 0; // → Wet
+
+    // Cumulative risk: P(event by year t) = 1 - (1 - p_annual)^t
+    const months = horizonYears * 12;
+    const inter  = [], ga = [], wet = [], flags = [];
+    const startDate = new Date(vis[vis.length-1].date);
+
+    let conversionMonth = null;
+
+    for (let m = 0; m <= months; m++) {
+        const t = m / 12;
+        const pI = stage === 0 ? Math.min(0.99, 1 - Math.pow(1 - pInterAnnual, t)) : (stage>0?1:0);
+        const pG = Math.min(0.99, 1 - Math.pow(1 - pGAAnnual, t));
+        const pW = stage < 2  ? Math.min(0.99, 1 - Math.pow(1 - pWetAnnual, t)) : (m===0?0:0.99);
+
+        inter.push(round2(pI * 100));
+        ga.push(round2(pG * 100));
+        wet.push(round2(pW * 100));
+
+        // Flags at 30%, 50%, 90% thresholds for Wet AMD curve
+        if (stage < 2) {
+            [30, 50, 90].forEach(thresh => {
+                if (pW * 100 >= thresh && (m===0 || wet[m-1] < thresh)) {
+                    if (thresh === 90 && conversionMonth === null) conversionMonth = m;
+                    flags.push({
+                        monthIdx: m,
+                        curve: 'wet',
+                        label: thresh === 90 ? '⚠ Urgent' : '📍 Referral recommended',
+                        detail: thresh === 90
+                            ? `Wet AMD conversion risk exceeds 90% at this point. Urgent referral to retina specialist recommended.`
+                            : `Wet AMD conversion risk crosses ${thresh}%. Consider scheduling retina specialist evaluation.`,
+                        urgency: thresh === 90 ? 'urgent' : thresh === 50 ? 'high' : 'medium',
+                    });
+                }
+            });
+            // GA 50% flag
+            if (pG * 100 >= 50 && (m===0 || ga[m-1] < 50)) {
+                flags.push({
+                    monthIdx: m, curve: 'ga',
+                    label: '📍 GA risk elevated',
+                    detail: `Geographic Atrophy progression risk exceeds 50%. Consider fundus autofluorescence imaging.`,
+                    urgency: 'medium',
+                });
+            }
+        }
+    }
+
+    const labels = [];
+    for (let m = 0; m <= months; m++) {
+        const d = new Date(startDate);
+        d.setMonth(d.getMonth() + m);
+        labels.push(fmtDate(d));
+    }
+
+    // Compute simulated conversion date for Treatment Optimizer
+    AMD.conversionDate = conversionMonth !== null
+        ? labels[conversionMonth]
+        : (stage === 2 ? vis[vis.length-1].date : null);
+
+    return { labels, inter, ga, wet, flags, conversionMonth };
+}
+
+// ── Render Step 3 ─────────────────────────────────────────
+AMD.renderPrognosisCharts = function() {
+    const p     = AMD.selectedPatient;
+    const v     = AMD.selectedVisit;
+    const visIdx = p.visits.findIndex(vv => vv.date === v.date);
+
+    AMD.destroyChart('progVA'); AMD.destroyChart('progRisk');
+
+    const vaFc   = computeVAForecast(p, visIdx, 5);
+    const riskFc = computeProgressionRisk(p, visIdx, 5);
+
+    // CTA note
+    const stage = v.stage;
+    const treatNote = stage === 2
+        ? 'Patient currently has Wet AMD. Treatment Optimizer will model Anti-VEGF response from this visit.'
+        : AMD.conversionDate
+            ? `Patient currently has ${AMD_STAGES[stage]}. Treatment Optimizer will fast-forward to projected Wet AMD conversion (~${AMD.conversionDate}).`
+            : 'Patient not projected to convert to Wet AMD within 5 years. Treatment Optimizer will model from maximum risk point.';
+    document.getElementById('treatmentCTANote').textContent = treatNote;
+
+    document.getElementById('prognosisContent').innerHTML = `
+    <!-- VA Forecast -->
+    <div class="chart-wrap">
+        <div class="chart-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            5-Year Visual Acuity Forecast
+            <span class="chart-subtitle">— dashed = predicted · shaded = 80% confidence</span>
+        </div>
+        <canvas id="progVAChart" height="150"></canvas>
+        <div id="vaFlagList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+    </div>
+
+    <!-- Progression Risk -->
+    <div class="chart-wrap">
+        <div class="chart-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            AMD Progression Risk (5 Years)
+            <span class="chart-subtitle">— cumulative probability of disease progression</span>
+        </div>
+        <canvas id="progRiskChart" height="150"></canvas>
+        <div id="riskFlagList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+    </div>
+
+    <!-- Model Transparency -->
+    <div class="section-card">
+        <div class="section-header" onclick="AMD._toggleTransp(this)">
+            <div class="section-icon" style="background:#f3f4f6;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+            <span class="section-title">Model Transparency — What drove these predictions?</span>
+            <svg class="section-collapse-icon open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="section-body" id="progTranspBody">
+            ${renderProgTransparency(p, v)}
+        </div>
+    </div>
+    `;
+
+    // ── VA Forecast Chart ─────────────────────────────────
+    // Historical observed (solid) + predicted (dashed) on same chart
+    const histVis  = p.visits.filter(vv => vv.date <= v.date);
+    const histDates = histVis.map(vv => vv.date);
+    const histVA    = histVis.map(vv => vv.va);
+
+    // Merge: history up to today, then forecast after
+    const allLabels = [...histDates, ...vaFc.labels.slice(1)];
+    const observed  = [...histVA,    ...new Array(vaFc.labels.length - 1).fill(null)];
+    const predicted = [...new Array(histDates.length - 1).fill(null), histVA[histVA.length-1], ...vaFc.forecast.slice(1)];
+    const ciLo      = [...new Array(histDates.length - 1).fill(null), vaFc.confLow[0],  ...vaFc.confLow.slice(1)];
+    const ciHi      = [...new Array(histDates.length - 1).fill(null), vaFc.confHigh[0], ...vaFc.confHigh.slice(1)];
+
+    // Build annotation objects for VA flags
+    // allLabels = [...histDates, ...vaFc.labels.slice(1)]
+    // flag.monthIdx=N maps to vaFc.labels[N], which is allLabels[histDates.length + N - 1]
+    const vaAnnotations = {};
+    vaFc.flags.forEach((f, i) => {
+        const labelIdx = Math.min(histDates.length - 1 + f.monthIdx, allLabels.length - 1);
+        const labelVal = allLabels[labelIdx];
+        if (!labelVal) return;
+        const color = f.urgency === 'high' ? '#ef4444' : '#f59e0b';
+        vaAnnotations['vaFlag' + i] = {
+            type: 'line',
+            xMin: labelVal, xMax: labelVal,
+            borderColor: color, borderWidth: 1.5, borderDash: [4, 3],
+            label: {
+                display: true, content: f.label, position: 'start',
+                backgroundColor: color, color: '#fff',
+                font: { size: 9, weight: 'bold' }, padding: { x: 5, y: 3 }, borderRadius: 4,
+            }
+        };
+    });
+    // Today line at exact visit date label
+    vaAnnotations.todayLine = {
+        type: 'line', xMin: v.date, xMax: v.date,
+        borderColor: '#9ca3af', borderWidth: 1.5, borderDash: [5,4],
+        label: { display: true, content: 'Today', position: 'end', backgroundColor: '#6b7280', color:'#fff', font:{size:9}, padding:{x:4,y:2}, borderRadius:3 }
+    };
+
+    AMD.charts.progVA = new Chart(document.getElementById('progVAChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [
+                // CI band — no visible border, no point, spanGaps:false so nulls leave gaps
+                { label: 'CI Upper', data: ciHi, borderColor: 'rgba(0,0,0,0)', borderWidth: 0, backgroundColor: 'rgba(13,148,136,0.13)', pointRadius: 0, fill: { target: '+1' }, tension: 0.4, spanGaps: false },
+                { label: 'CI Lower', data: ciLo, borderColor: 'rgba(0,0,0,0)', borderWidth: 0, backgroundColor: 'rgba(13,148,136,0.13)', pointRadius: 0, fill: false, tension: 0.4, spanGaps: false },
+                // Observed and predicted on top
+                { label: 'Observed VA', data: observed, borderColor: '#0d9488', borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: '#0d9488', tension: 0.3, spanGaps: false },
+                { label: 'Predicted VA', data: predicted, borderColor: '#0d9488', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0.3, spanGaps: false },
+            ]
+        },
+        options: {
+            responsive: true, animation: { duration: 700 },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: { reverse: true, min: -0.1, max: 1.8,
+                    title: { display: true, text: 'LogMAR (↑ = worse)', font:{size:9} },
+                    ticks: { callback: v => v.toFixed(1) + ' / ' + logmarToSnellen(v), font:{size:9} } },
+                x: { ticks: { font:{size:8}, maxRotation:30, maxTicksLimit: 12 } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    filter: item => item.datasetIndex >= 2 && item.raw !== null,
+                    callbacks: {
+                        label: ctx => {
+                            if (ctx.raw === null) return null;
+                            const lm = ctx.raw;
+                            return `${ctx.dataset.label}: ${lm.toFixed(2)} LogMAR (${logmarToSnellen(lm)})`;
+                        }
+                    }
+                },
+                annotation: { annotations: vaAnnotations }
+            }
+        }
+    });
+
+    // ── Progression Risk Chart ────────────────────────────
+    const riskAnnotations = {};
+    riskFc.flags.forEach((f, i) => {
+        const color = f.urgency === 'urgent' ? '#dc2626' : f.urgency === 'high' ? '#ea580c' : '#f59e0b';
+        riskAnnotations['rf' + i] = {
+            type: 'line',
+            xMin: riskFc.labels[f.monthIdx], xMax: riskFc.labels[f.monthIdx],
+            borderColor: color, borderWidth: 1.5, borderDash: [4,3],
+            label: {
+                display: true, content: f.label, position: 'start',
+                backgroundColor: color, color: '#fff',
+                font: { size: 9, weight: 'bold' }, padding: {x:5,y:3}, borderRadius: 4
+            }
+        };
+    });
+
+    // Filter datasets by current stage — don't show curves for stages already passed
+    const riskDatasets = [];
+    if (v.stage < 1) riskDatasets.push(
+        { label: '→ Intermediate AMD', data: riskFc.inter, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.06)', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true }
+    );
+    if (v.stage < 2) riskDatasets.push(
+        { label: '→ Wet AMD (nAMD)', data: riskFc.wet, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)', borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: true }
+    );
+    riskDatasets.push(
+        { label: '→ Geographic Atrophy', data: riskFc.ga, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.05)', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true }
+    );
+
+    AMD.charts.progRisk = new Chart(document.getElementById('progRiskChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: riskFc.labels,
+            datasets: riskDatasets,
+        },
+        options: {
+            responsive: true, animation: { duration: 700 },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: { min: 0, max: 100, title: { display: true, text: 'Cumulative Risk (%)', font:{size:9} },
+                    ticks: { callback: v => v + '%', font:{size:9} } },
+                x: { ticks: { font:{size:8}, maxRotation:30, maxTicksLimit:12 } }
+            },
+            plugins: {
+                legend: { labels: { font:{size:10}, boxWidth:14, usePointStyle:true } },
+                tooltip: {
+                    callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` }
+                },
+                annotation: { annotations: riskAnnotations }
+            }
+        }
+    });
+
+    // Flag pill lists
+    const vaFlagListEl = document.getElementById('vaFlagList');
+    vaFc.flags.slice(0, 4).forEach(f => {
+        const pill = document.createElement('span');
+        pill.className = 'badge ' + (f.urgency==='high'?'badge-red':'badge-orange');
+        pill.title = f.detail;
+        pill.style.cursor = 'help';
+        pill.textContent = f.label;
+        vaFlagListEl.appendChild(pill);
+    });
+
+    const riskFlagListEl = document.getElementById('riskFlagList');
+    riskFc.flags.slice(0, 4).forEach(f => {
+        const pill = document.createElement('span');
+        pill.className = 'badge ' + (f.urgency==='urgent'?'badge-red':f.urgency==='high'?'badge-orange':'badge-inter');
+        pill.title = f.detail;
+        pill.style.cursor = 'help';
+        pill.textContent = f.label;
+        riskFlagListEl.appendChild(pill);
+    });
+};
+
+// ── Model Transparency Panel ──────────────────────────────
+function renderProgTransparency(p, v) {
+    const factors = [
+        { var: 'Age', val: p.age + ' years', dir: p.age > 75 ? 'up' : p.age > 65 ? 'neut' : 'down', mag: 'High', type: p.age > 70 ? 'risk' : 'protect' },
+        { var: 'AMD Stage at Visit', val: AMD_STAGES[v.stage], dir: 'up', mag: 'High', type: 'risk' },
+        { var: 'Smoking Status', val: p.smoking, dir: p.smoking==='Never'?'down':p.smoking==='Current'?'up':'neut', mag: 'High', type: p.smoking==='Never'?'protect':p.smoking==='Current'?'risk':'neutral' },
+        { var: 'AREDS Supplements', val: p.AREDS?'Yes':'No', dir: p.AREDS?'down':'neut', mag: 'Moderate', type: p.AREDS?'protect':'neutral' },
+        { var: 'Family History', val: p.familyHx?'Yes':'No', dir: p.familyHx?'up':'neut', mag: 'Moderate', type: p.familyHx?'risk':'neutral' },
+        { var: 'Diabetes', val: p.hasDM?'Yes':'No', dir: p.hasDM?'up':'neut', mag: 'Moderate', type: p.hasDM?'risk':'neutral' },
+        { var: 'BMI', val: v.bmi + ' kg/m²', dir: v.bmi>30?'up':v.bmi<25?'down':'neut', mag: 'Low', type: v.bmi>30?'risk':v.bmi<25?'protect':'neutral' },
+        { var: 'VA Trajectory Slope', val: ((v.va - (AMD.selectedPatient.visits[0]?.va||v.va)) / Math.max(1, (new Date(v.date)-new Date(AMD.selectedPatient.visits[0]?.date||v.date))/(365.25*86400000))).toFixed(2) + ' LogMAR/yr', dir: 'up', mag: 'High', type: 'risk' },
+    ];
+
+    const riskFactors    = factors.filter(f => f.type === 'risk');
+    const protectFactors = factors.filter(f => f.type === 'protect');
+    const neutralFactors = factors.filter(f => f.type === 'neutral');
+
+    function pillHTML(f) {
+        const arrow = f.dir==='up' ? '↑' : f.dir==='down' ? '↓' : '→';
+        return `<div class="transp-pill ${f.type}">
+            <div><div class="transp-var">${f.var}</div><div class="transp-val">${f.val} · ${f.mag} impact</div></div>
+            <div class="transp-dir ${f.dir}">${arrow}</div>
+        </div>`;
+    }
+
+    return `
+    <p style="font-size:0.78rem;color:var(--text-sub);margin-bottom:12px;line-height:1.5;">
+        The prognosis model uses the following patient variables to generate the 5-year VA forecast and progression risk curves. Coefficients are calibrated to AREDS2 trial outcomes.
+    </p>
+    <div style="margin-bottom:10px;">
+        <p style="font-size:0.72rem;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">↑ Factors increasing risk</p>
+        <div class="transp-grid">${riskFactors.map(pillHTML).join('')}</div>
+    </div>
+    ${protectFactors.length ? `
+    <div style="margin-bottom:10px;">
+        <p style="font-size:0.72rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">↓ Factors reducing risk</p>
+        <div class="transp-grid">${protectFactors.map(pillHTML).join('')}</div>
+    </div>` : ''}
+    ${neutralFactors.length ? `
+    <div>
+        <p style="font-size:0.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">→ Neutral factors</p>
+        <div class="transp-grid">${neutralFactors.map(pillHTML).join('')}</div>
+    </div>` : ''}
+    `;
+}
+
+AMD._toggleTransp = function(header) {
+    const body = header.nextElementSibling;
+    const icon = header.querySelector('.section-collapse-icon');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    icon.classList.toggle('open', hidden);
+};
+</script>
+<script id="treatmentScript">
+// ══════════════════════════════════════════════════════════
+// STEP 4 — TREATMENT OPTIMIZER
+// ══════════════════════════════════════════════════════════
+
+const AGENT_COLORS = {
+    'Aflibercept':   '#0d9488',
+    'Faricimab':     '#6d28d9',
+    'Brolucizumab':  '#0284c7',
+    'Ranibizumab':   '#059669',
+    'Bevacizumab':   '#d97706',
+};
+
+// Treatment efficacy modifiers — wider range so visual differences are clear
+// Lower = better (treated_slope = untreated_slope × modifier)
+const AGENT_MODS = {
+    'Faricimab':    0.10,   // most efficacious (TENAYA/LUCERNE data)
+    'Aflibercept':  0.17,
+    'Brolucizumab': 0.21,
+    'Ranibizumab':  0.31,
+    'Bevacizumab':  0.44,   // least efficacious but widely used
+};
+
+const INTERVAL_PENALTY = {
+    'Monthly':          1.00,
+    'Every 6 weeks':    1.15,
+    'Every 8 weeks':    1.32,
+    'Treat-and-Extend': 1.20,
+    'PRN':              1.58,
+};
+
+// ── Model: VA with treatment ──────────────────────────────
+function computeTreatmentVA(patient, convDate, horizonYears, agent, interval, pdt) {
+    const startDate = new Date(convDate);
+    const months    = horizonYears * 12;
+
+    // Find VA at conversion date
+    const convVisit = patient.visits.reduce((prev, v) =>
+        v.date <= convDate ? v : prev, patient.visits[0]);
+    const vaConv = convVisit.va;
+
+    // Untreated Wet AMD slope (from prognosis model)
+    const wetSlope = 0.150
+        * ({'Never':1.0,'Quit >6 months':1.05,'Quit <6 months':1.20,'Current':1.40}[patient.smoking]||1)
+        * (patient.hasDM ? 1.15 : 1);
+
+    const agentMod   = AGENT_MODS[agent] || 0.20;
+    const intPenalty = INTERVAL_PENALTY[interval] || 1.0;
+    const pdtMod     = pdt ? 0.85 : 1.0;
+
+    const treatedSlope   = wetSlope * agentMod * intPenalty * pdtMod;
+    const untreatedSlope = wetSlope;
+
+    const labels    = [];
+    const treated   = [];
+    const untreated = [];
+    const flags     = [];
+
+    let prevTreat = vaConv, prevUntreat = vaConv;
+
+    for (let m = 0; m <= months; m++) {
+        const t = m / 12;
+        const seed = patient.idx * 0.041;
+        const pertT = Math.sin((m + seed * 7) * 0.8) * 0.005;
+
+        const vaTreated   = Math.min(3.0, Math.max(0, vaConv + treatedSlope * t + pertT));
+        const vaUntreated = Math.min(3.0, vaConv + untreatedSlope * t);
+
+        treated.push(round2(vaTreated));
+        untreated.push(round2(vaUntreated));
+
+        const d = new Date(startDate);
+        d.setMonth(d.getMonth() + m);
+        labels.push(fmtDate(d));
+
+        // Flag: stable response (consider extending interval)
+        if (m > 3 && m % 3 === 0) {
+            const recentSlope = (treated[m] - treated[m-3]) / 3;
+            if (recentSlope < 0.005 && interval !== 'Treat-and-Extend') {
+                flags.push({
+                    monthIdx: m, label: '📍 Consider interval extension',
+                    detail: `VA response stable over past 3 months (slope ${(recentSlope*100).toFixed(2)} LogMAR/mo). Consider treat-and-extend protocol.`,
+                    urgency: 'low', type: 'extend'
+                });
+            } else if (recentSlope > 0.025) {
+                flags.push({
+                    monthIdx: m, label: '📍 Consider interval shortening',
+                    detail: `VA declining despite treatment (${(recentSlope*100).toFixed(2)} LogMAR/mo). Consider more frequent injections.`,
+                    urgency: 'high', type: 'shorten'
+                });
+            }
+        }
+
+        // PDT flag at month 6 if improvement is suboptimal
+        if (m === 6 && !pdt) {
+            const improvement = vaConv - vaTreated;
+            if (improvement < 0.10) {
+                flags.push({
+                    monthIdx: 6, label: '💊 PDT adjuvant recommended',
+                    detail: `VA improvement at 6 months (${improvement.toFixed(2)} LogMAR) is below target. Photodynamic therapy adjuvant may improve outcomes for Classic CNV lesions.`,
+                    urgency: 'medium', type: 'pdt'
+                });
+            }
+        }
+
+        prevTreat = vaTreated; prevUntreat = vaUntreated;
+    }
+
+    return { labels, treated, untreated, flags, treatedSlope, vaConv };
+}
+
+// ── Model: Grade Progression ──────────────────────────────
+// Simplified to Mild (Grade 1-2) vs Severe (Grade 3-4) for clarity
+function computeGradeProgression(patient, convDate, horizonYears, agent, interval, pdt) {
+    const startDate  = new Date(convDate);
+    const months     = horizonYears * 12;
+
+    const agentMod   = AGENT_MODS[agent] || 0.25;
+    const intPenalty = INTERVAL_PENALTY[interval] || 1.0;
+    const pdtMod     = pdt ? 0.82 : 1.0;
+    const treatEff   = agentMod * intPenalty * pdtMod; // overall treatment effectiveness multiplier
+
+    // Untreated annual probabilities of cumulative mild (G1-2) and severe (G3-4) progression
+    const pMildAnnU   = 0.40;  // ~40% per year advance to G1-2 untreated
+    const pSevereAnnU = 0.22;  // ~22% per year advance to G3-4 untreated
+
+    // Treatment effect: reduce slope
+    const pMildAnnT   = pMildAnnU   * treatEff * 0.45;
+    const pSevereAnnT = pSevereAnnU * treatEff * 0.40;
+
+    const labels = [], mild_t = [], mild_u = [], severe_t = [], severe_u = [];
+    const flags  = [];
+
+    for (let m = 0; m <= months; m++) {
+        const t = m / 12;
+        const d = new Date(startDate);
+        d.setMonth(d.getMonth() + m);
+        labels.push(fmtDate(d));
+
+        const mt = round2(Math.min(98, (1 - Math.pow(1 - pMildAnnT, t)) * 100));
+        const mu = round2(Math.min(98, (1 - Math.pow(1 - pMildAnnU, t)) * 100));
+        const st = round2(Math.min(95, (1 - Math.pow(1 - pSevereAnnT, t)) * 100));
+        const su = round2(Math.min(95, (1 - Math.pow(1 - pSevereAnnU, t)) * 100));
+
+        mild_t.push(mt); mild_u.push(mu);
+        severe_t.push(st); severe_u.push(su);
+
+        // Flag: severe progression crossing 30% despite treatment
+        if (st > 30 && (m === 0 || severe_t[m-1] <= 30)) {
+            flags.push({
+                monthIdx: m, label: '⚠ Agent switch recommended',
+                detail: `Severe grade (G3-4) progression risk exceeds 30% despite current treatment. Consider switching to a more potent Anti-VEGF agent.`,
+                urgency: 'high'
+            });
+        }
+        // Flag: PDT if severe untreated-treated gap is large
+        if (!pdt && m === 18 && (su - st) < 8) {
+            flags.push({
+                monthIdx: 18, label: '📍 Add PDT',
+                detail: `Limited separation between treated and untreated severe progression curves. PDT adjuvant may improve outcomes for Classic CNV lesions.`,
+                urgency: 'medium'
+            });
+        }
+    }
+
+    return { labels, mild_t, mild_u, severe_t, severe_u, flags };
+}
+
+// ── Prepare conversion context ────────────────────────────
+AMD.prepareConversionContext = function() {
+    const p = AMD.selectedPatient;
+    const v = AMD.selectedVisit;
+
+    // Show conversion banner if not currently Wet
+    const bannerEl = document.getElementById('conversionBanner');
+    if (v.stage < 2 && AMD.conversionDate) {
+        bannerEl.style.display = '';
+        bannerEl.innerHTML = `<div class="conversion-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div><strong>Simulated conversion point:</strong> Patient currently has ${AMD_STAGES[v.stage]}. Treatment modelling is projected from the estimated Wet AMD conversion date of <strong>${AMD.conversionDate}</strong>, when the Wet AMD risk crosses 90%. This represents the expected treatment decision point.</div>
+        </div>`;
+    } else if (v.stage < 2 && !AMD.conversionDate) {
+        // Use 2 years from today as fallback
+        const d = new Date(v.date); d.setFullYear(d.getFullYear() + 2);
+        AMD.conversionDate = fmtDate(d);
+        bannerEl.style.display = '';
+        bannerEl.innerHTML = `<div class="conversion-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            <div>Patient not projected to cross 90% Wet AMD risk within 5 years. Modelling from a simulated conversion date of <strong>${AMD.conversionDate}</strong> (2 years from visit date).</div>
+        </div>`;
+    } else {
+        bannerEl.style.display = 'none';
+        AMD.conversionDate = AMD.conversionDate || v.date;
+    }
+};
+
+// ── Render Configurator ───────────────────────────────────
+AMD.renderTreatmentConfigurator = function() {
+    const t = AMD.treatment;
+    const agents    = ['Aflibercept','Faricimab','Brolucizumab','Ranibizumab','Bevacizumab'];
+    const intervals = ['Monthly','Every 6 weeks','Every 8 weeks','Treat-and-Extend','PRN'];
+
+    document.getElementById('treatmentConfig').innerHTML = `
+    <div class="section-card">
+        <div class="section-header no-collapse">
+            <div class="section-icon" style="background:var(--teal-light);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3l-5 9h16L15 3zM12 12v9M8 21h8"/></svg></div>
+            <span class="section-title">Treatment Plan</span>
+        </div>
+        <div class="section-body space-y-5">
+
+            <div>
+                <label class="field-label">Anti-VEGF Agent</label>
+                <div class="seg-control" style="flex-direction:column;gap:3px;">
+                    ${agents.map(a => `<button class="seg-btn ${a===t.agent?'active':''}" onclick="AMD._setAgent('${a}',this)"
+                        style="${a===t.agent?'color:'+AGENT_COLORS[a]+';':''}">${a}</button>`).join('')}
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label">Injection Interval</label>
+                <div class="seg-control" style="flex-direction:column;gap:3px;">
+                    ${intervals.map(iv => `<button class="seg-btn ${iv===t.interval?'active':''}" onclick="AMD._setInterval('${iv}',this)">${iv}</button>`).join('')}
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label">Adjuvant Therapy</label>
+                <div class="toggle-wrap">
+                    <div>
+                        <div class="toggle-label">Photodynamic Therapy (PDT)</div>
+                        <div class="toggle-sub">Verteporfin-based, for Classic CNV lesions</div>
+                    </div>
+                    <div class="toggle-switch ${t.pdt?'on':''}" id="pdtToggle" onclick="AMD._togglePDT(this)">
+                        <div class="toggle-knob"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background:var(--teal-bg);border-radius:8px;padding:10px 12px;border:1px solid #99f6e4;">
+                <div style="font-size:0.72rem;font-weight:700;color:var(--teal-dark);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Current Plan</div>
+                <div style="font-size:0.82rem;color:var(--text);" id="planSummary">${planSummaryText()}</div>
+            </div>
+        </div>
+    </div>
+    `;
+};
+
+function planSummaryText() {
+    const t = AMD.treatment;
+    return `${t.agent} · ${t.interval}${t.pdt?' + PDT':''}`;
+}
+
+AMD._setAgent = function(agent, btn) {
+    AMD.treatment.agent = agent;
+    document.querySelectorAll('#treatmentConfig .seg-btn').forEach(b => {
+        if (b.onclick && b.onclick.toString().includes("_setAgent")) {
+            b.classList.remove('active'); b.style.color = '';
+        }
+    });
+    btn.classList.add('active'); btn.style.color = AGENT_COLORS[agent];
+    document.getElementById('planSummary').textContent = planSummaryText();
+    AMD.updateTreatmentCharts();
+};
+
+AMD._setInterval = function(interval, btn) {
+    AMD.treatment.interval = interval;
+    btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('planSummary').textContent = planSummaryText();
+    AMD.updateTreatmentCharts();
+};
+
+AMD._togglePDT = function(toggle) {
+    AMD.treatment.pdt = !AMD.treatment.pdt;
+    toggle.classList.toggle('on', AMD.treatment.pdt);
+    document.getElementById('planSummary').textContent = planSummaryText();
+    AMD.updateTreatmentCharts();
+};
+
+// ── Render Treatment Charts ───────────────────────────────
+AMD.renderTreatmentCharts = function() {
+    document.getElementById('treatmentCharts').innerHTML = `
+    <!-- VA with Treatment -->
+    <div class="chart-wrap">
+        <div class="chart-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Predicted VA: Treatment vs Baseline
+            <span class="chart-subtitle">— solid = treated · dashed gray = untreated</span>
+        </div>
+        <canvas id="treatVAChart" height="160"></canvas>
+        <div id="treatVAFlags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+    </div>
+
+    <!-- Grade Progression -->
+    <div class="chart-wrap">
+        <div class="chart-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            Wet AMD Grade Progression
+            <span class="chart-subtitle">— solid = treated · dashed = untreated</span>
+        </div>
+        <canvas id="treatGradeChart" height="160"></canvas>
+        <div id="treatGradeFlags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+    </div>
+
+    <!-- Treatment Transparency -->
+    <div class="section-card">
+        <div class="section-header" onclick="AMD._toggleTransp(this)">
+            <div class="section-icon" style="background:#f3f4f6;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+            <span class="section-title">Model Transparency — Treatment Response Factors</span>
+            <svg class="section-collapse-icon open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="section-body" id="treatTranspBody">
+            ${renderTreatTransparency()}
+        </div>
+    </div>
+    `;
+    AMD._drawTreatmentCharts();
+};
+
+AMD._drawTreatmentCharts = function() {
+    const p    = AMD.selectedPatient;
+    const conv = AMD.conversionDate || AMD.selectedVisit.date;
+    const t    = AMD.treatment;
+
+    AMD.destroyChart('treatVA'); AMD.destroyChart('treatGrade');
+
+    const vaFc    = computeTreatmentVA(p, conv, 5, t.agent, t.interval, t.pdt);
+    const gradeFc = computeGradeProgression(p, conv, 5, t.agent, t.interval, t.pdt);
+
+    const agentColor = AGENT_COLORS[t.agent] || '#0d9488';
+
+    // ── VA Chart ──────────────────────────────────────────
+    const vaAnnotations = {};
+    // Dedup flags by type (max 1 per type)
+    const seenTypes = new Set();
+    vaFc.flags.filter(f => {
+        if (seenTypes.has(f.type)) return false;
+        seenTypes.add(f.type); return true;
+    }).forEach((f, i) => {
+        const color = f.urgency==='high'?'#ef4444':f.urgency==='medium'?'#f59e0b':'#0d9488';
+        vaAnnotations['tvf'+i] = {
+            type: 'line',
+            xMin: vaFc.labels[f.monthIdx], xMax: vaFc.labels[f.monthIdx],
+            borderColor: color, borderWidth: 1.5, borderDash: [4,3],
+            label: { display: true, content: f.label, position: 'start',
+                backgroundColor: color, color: '#fff', font:{size:9,weight:'bold'}, padding:{x:4,y:2}, borderRadius:3 }
+        };
+    });
+
+    AMD.charts.treatVA = new Chart(document.getElementById('treatVAChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: vaFc.labels,
+            datasets: [
+                { label: `${t.agent} (${t.interval})`, data: vaFc.treated,   borderColor: agentColor, backgroundColor: agentColor+'18', borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: true },
+                { label: 'No treatment',              data: vaFc.untreated, borderColor: '#9ca3af',  backgroundColor: 'transparent',    borderWidth: 1.5, borderDash:[5,4], pointRadius: 0, tension: 0.4 },
+            ]
+        },
+        options: {
+            responsive: true, animation: { duration: 500 },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: { reverse: true, min: -0.1, max: 2.5,
+                    title: { display: true, text: 'LogMAR (↑ = worse)', font:{size:9} },
+                    ticks: { callback: v => v.toFixed(1) + ' / ' + logmarToSnellen(v), font:{size:9} } },
+                x: { ticks: { font:{size:8}, maxRotation:30, maxTicksLimit:12 } }
+            },
+            plugins: {
+                legend: { labels: { font:{size:10}, boxWidth:14, usePointStyle:true } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            if (ctx.raw === null) return null;
+                            const gain = (vaFc.untreated[ctx.dataIndex] - vaFc.treated[ctx.dataIndex]);
+                            const etdrs = Math.round(gain / 0.02); // ~0.02 LogMAR per ETDRS letter
+                            const gainStr = ctx.datasetIndex === 0 && gain > 0 ? ` (+${etdrs} ETDRS letters vs untreated)` : '';
+                            return `${ctx.dataset.label}: ${ctx.raw.toFixed(2)} LogMAR${gainStr}`;
+                        }
+                    }
+                },
+                annotation: { annotations: vaAnnotations }
+            }
+        }
+    });
+
+    // Flag pills — VA
+    const vaFlagEl = document.getElementById('treatVAFlags');
+    vaFlagEl.innerHTML = '';
+    const seen2 = new Set();
+    vaFc.flags.filter(f => { if(seen2.has(f.type)) return false; seen2.add(f.type); return true; }).forEach(f => {
+        const pill = document.createElement('span');
+        pill.className = 'badge '+(f.urgency==='high'?'badge-red':f.urgency==='medium'?'badge-orange':'badge-teal');
+        pill.title = f.detail; pill.style.cursor = 'help';
+        pill.textContent = f.label;
+        vaFlagEl.appendChild(pill);
+    });
+
+    // ── Grade Chart (Mild G1-2 vs Severe G3-4) ────────────
+    const gradeDatasets = [
+        {
+            label: 'Mild (G1-2) — treated',
+            data: gradeFc.mild_t,
+            borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.08)',
+            borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: false
+        },
+        {
+            label: 'Mild (G1-2) — untreated',
+            data: gradeFc.mild_u,
+            borderColor: '#0d9488', borderWidth: 1.2, borderDash:[5,4],
+            pointRadius: 0, tension: 0.4, fill: false
+        },
+        {
+            label: 'Severe (G3-4) — treated',
+            data: gradeFc.severe_t,
+            borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',
+            borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: false
+        },
+        {
+            label: 'Severe (G3-4) — untreated',
+            data: gradeFc.severe_u,
+            borderColor: '#ef4444', borderWidth: 1.2, borderDash:[5,4],
+            pointRadius: 0, tension: 0.4, fill: false
+        },
+    ];
+
+    const gradeAnnotations = {};
+    const seen3 = new Set();
+    gradeFc.flags.filter(f => {
+        const key = f.label; if(seen3.has(key)) return false; seen3.add(key); return true;
+    }).forEach((f, i) => {
+        const color = f.urgency==='high'?'#ef4444':'#f59e0b';
+        gradeAnnotations['gf'+i] = {
+            type: 'line',
+            xMin: gradeFc.labels[f.monthIdx], xMax: gradeFc.labels[f.monthIdx],
+            borderColor: color, borderWidth: 1.5, borderDash:[4,3],
+            label: { display:true, content: f.label, position:'start',
+                backgroundColor:color, color:'#fff', font:{size:9,weight:'bold'}, padding:{x:4,y:2}, borderRadius:3 }
+        };
+    });
+
+    AMD.charts.treatGrade = new Chart(document.getElementById('treatGradeChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: gradeFc.labels, datasets: gradeDatasets },
+        options: {
+            responsive: true, animation: { duration: 500 },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: { min: 0, max: 100, title: { display:true, text:'Probability (%)', font:{size:9} },
+                    ticks: { callback: v => v+'%', font:{size:9} } },
+                x: { ticks: { font:{size:8}, maxRotation:30, maxTicksLimit:12 } }
+            },
+            plugins: {
+                legend: { labels: { font:{size:9}, boxWidth:12 } },
+                tooltip: {
+                    callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` }
+                },
+                annotation: { annotations: gradeAnnotations }
+            }
+        }
+    });
+
+    // Grade flag pills
+    const gradeFlagEl = document.getElementById('treatGradeFlags');
+    gradeFlagEl.innerHTML = '';
+    const seen4 = new Set();
+    gradeFc.flags.filter(f => { const k=f.label; if(seen4.has(k)) return false; seen4.add(k); return true; }).forEach(f => {
+        const pill = document.createElement('span');
+        pill.className = 'badge '+(f.urgency==='high'?'badge-red':'badge-orange');
+        pill.title = f.detail; pill.style.cursor = 'help';
+        pill.textContent = f.label;
+        gradeFlagEl.appendChild(pill);
+    });
+
+    // Update transparency panel
+    document.getElementById('treatTranspBody').innerHTML = renderTreatTransparency();
+};
+
+AMD.updateTreatmentCharts = function() {
+    AMD._drawTreatmentCharts();
+};
+
+// ── Treatment Transparency Panel ──────────────────────────
+function renderTreatTransparency() {
+    const t = AMD.treatment;
+    const p = AMD.selectedPatient;
+    const v = AMD.selectedVisit;
+    const agentMod   = AGENT_MODS[t.agent] || 0.20;
+    const intPenalty = INTERVAL_PENALTY[t.interval] || 1.0;
+
+    const convVisit = p.visits.reduce((prev, vv) =>
+        vv.date <= (AMD.conversionDate||v.date) ? vv : prev, p.visits[0]);
+
+    const factors = [
+        { var: 'Anti-VEGF Agent', val: t.agent, dir: agentMod < 0.18 ? 'down' : 'up', mag: 'High', type: agentMod < 0.18 ? 'protect' : 'risk',
+          note: `Efficacy modifier: ${(agentMod*100).toFixed(0)}% of untreated slope` },
+        { var: 'Injection Interval', val: t.interval, dir: intPenalty > 1.0 ? 'up' : 'down', mag: 'Moderate', type: intPenalty > 1.0 ? 'risk' : 'protect',
+          note: `Adherence penalty: ×${intPenalty.toFixed(2)}` },
+        { var: 'PDT Adjuvant', val: t.pdt ? 'Yes (Verteporfin)' : 'No', dir: t.pdt ? 'down' : 'neut', mag: 'Moderate', type: t.pdt ? 'protect' : 'neutral',
+          note: t.pdt ? 'Reduces slope by 15% over 2 years' : 'No adjuvant effect modelled' },
+        { var: 'Diabetes (HbA1c proxy)', val: p.hasDM ? 'Yes — DME risk' : 'No', dir: p.hasDM ? 'up' : 'neut', mag: 'Moderate', type: p.hasDM ? 'risk' : 'neutral', note: 'Diabetic macular edema risk modifier' },
+        { var: 'VA at Conversion', val: convVisit.va.toFixed(2) + ' LogMAR (' + logmarToSnellen(convVisit.va) + ')', dir: convVisit.va > 0.5 ? 'up' : 'neut', mag: 'High', type: convVisit.va > 0.5 ? 'risk' : 'neutral', note: 'Baseline VA at treatment start' },
+        { var: 'Prior Treatment', val: p.visits.some(vv => vv.treatment) ? 'Yes' : 'No', dir: 'neut', mag: 'Low', type: 'neutral', note: 'Treatment-naïve patients may respond better' },
+        { var: 'CRP (Inflammation)', val: convVisit.labs?.crp ? convVisit.labs.crp + ' mg/L' : 'Not measured', dir: (convVisit.labs?.crp||0) > 2 ? 'up' : 'neut', mag: 'Low', type: (convVisit.labs?.crp||0) > 2 ? 'risk' : 'neutral', note: 'Elevated CRP may blunt anti-VEGF response' },
+    ];
+
+    function pillHTML(f) {
+        const arrow = f.dir==='up'?'↑':f.dir==='down'?'↓':'→';
+        return `<div class="transp-pill ${f.type}">
+            <div style="flex:1;"><div class="transp-var">${f.var}</div><div class="transp-val">${f.val} · ${f.note}</div></div>
+            <div class="transp-dir ${f.dir}">${arrow}</div>
+        </div>`;
+    }
+
+    const risk    = factors.filter(f => f.type === 'risk');
+    const protect = factors.filter(f => f.type === 'protect');
+    const neutral = factors.filter(f => f.type === 'neutral');
+
+    return `
+    <p style="font-size:0.78rem;color:var(--text-sub);margin-bottom:12px;line-height:1.5;">
+        The treatment response model adjusts the untreated VA trajectory using agent efficacy, injection frequency, and patient-specific modifiers. All coefficients are based on published Phase 3 Anti-VEGF trial data.
+    </p>
+    <div style="margin-bottom:10px;">
+        <p style="font-size:0.72rem;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">↑ Factors limiting response</p>
+        <div class="transp-grid">${risk.map(pillHTML).join('')}</div>
+    </div>
+    ${protect.length?`<div style="margin-bottom:10px;">
+        <p style="font-size:0.72rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">↓ Factors improving response</p>
+        <div class="transp-grid">${protect.map(pillHTML).join('')}</div>
+    </div>`:''}
+    ${neutral.length?`<div>
+        <p style="font-size:0.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">→ Contextual variables</p>
+        <div class="transp-grid">${neutral.map(pillHTML).join('')}</div>
+    </div>`:''}`;
+}
+</script>
+
+</body>
+</html>

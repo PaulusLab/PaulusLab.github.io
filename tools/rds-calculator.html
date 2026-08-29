@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retinal Detachment Repair Success Calculator</title>
+    <script src="vendor/tailwind.min.js"></script>
+    <link href="vendor/fonts/inter/inter.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #eef2f7; min-height: 100vh; }
+
+        /* ── Custom select ────────────────────────────────── */
+        .custom-select {
+            width: 100%;
+            appearance: none;
+            background-color: #ffffff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            padding: 9px 38px 9px 12px;
+            font-size: 0.875rem;
+            color: #111827;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            line-height: 1.4;
+        }
+        .custom-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .custom-select:hover  { border-color: #9ca3af; }
+
+        /* ── Text / number inputs ─────────────────────────── */
+        .custom-input {
+            width: 100%;
+            background: #ffffff;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-size: 0.875rem;
+            color: #111827;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .custom-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .custom-input:hover  { border-color: #9ca3af; }
+
+        /* ── Labels ───────────────────────────────────────── */
+        .field-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 5px;
+            letter-spacing: 0.01em;
+        }
+
+        /* ── Section cards ────────────────────────────────── */
+        .section-card {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .section-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .section-body { padding: 18px 20px; }
+
+        /* ── Custom checkbox ──────────────────────────────── */
+        .cb-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
+        .cb-item:hover { background: #f9fafb; }
+        .cb-item input[type="checkbox"] {
+            width: 17px; height: 17px;
+            border-radius: 4px;
+            border: 1.5px solid #d1d5db;
+            accent-color: #3b82f6;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .cb-label { font-size: 0.84rem; font-weight: 500; color: #374151; line-height: 1.3; }
+
+        /* ── VA Slider ────────────────────────────────────── */
+        .va-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+            cursor: pointer;
+            background: linear-gradient(to right, #22c55e 0%, #84cc16 20%, #eab308 40%, #f97316 65%, #ef4444 80%, #7c3aed 100%);
+        }
+        .va-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2.5px solid #3b82f6;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            cursor: grab;
+        }
+        .va-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+        .va-slider::-moz-range-thumb {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2.5px solid #3b82f6;
+            cursor: grab;
+        }
+        .va-tick { font-size: 0.65rem; color: #9ca3af; text-align: center; line-height: 1.1; }
+
+        /* ── Surgery result cards ────────────────────────── */
+        .surgery-card {
+            border-radius: 10px;
+            border: 1.5px solid #e5e7eb;
+            padding: 12px 14px;
+            background: #fafafa;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .surgery-card:hover { border-color: #93c5fd; background: #f5f9ff; }
+        .surgery-card.selected { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 0 0 2px rgba(59,130,246,0.18); }
+        .surgery-card.loading { opacity: 0.5; cursor: default; }
+        .surgery-name    { font-weight: 600; font-size: 0.88rem; color: #1f2937; }
+        .surgery-sub     { font-size: 0.7rem; color: #6b7280; margin-top: 1px; }
+        .surgery-pct     { font-size: 2rem; font-weight: 700; line-height: 1; }
+        .pct-high        { color: #16a34a; }
+        .pct-mid         { color: #d97706; }
+        .pct-low         { color: #dc2626; }
+        .bar-track       { height: 5px; background: #e5e7eb; border-radius: 999px; margin-top: 8px; overflow: hidden; }
+        .bar-fill        { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+
+        /* ── Factor pills ────────────────────────────────── */
+        .factor-pill {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 3px 9px; border-radius: 999px;
+            font-size: 0.71rem; font-weight: 500; margin: 2px 2px 2px 0;
+        }
+        .fp-good    { background: #dcfce7; color: #166534; }
+        .fp-bad     { background: #fee2e2; color: #991b1b; }
+        .fp-neutral { background: #f3f4f6; color: #374151; }
+
+        /* ── OCT zone ─────────────────────────────────────── */
+        .oct-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 10px; padding: 20px;
+            text-align: center; cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .oct-zone:hover, .oct-zone.drag-over { border-color: #3b82f6; background: #eff6ff; }
+        .oct-zone.has-file                   { border-color: #16a34a; background: #f0fdf4; }
+
+        /* ── Segmented control ────────────────────────────── */
+        .seg-control { display: flex; gap: 4px; background: #f3f4f6; border-radius: 8px; padding: 4px; }
+        .seg-btn {
+            flex: 1; padding: 6px 8px; border-radius: 5px; border: none;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+            background: transparent; color: #6b7280;
+            transition: background 0.15s, color 0.15s;
+        }
+        .seg-btn.active { background: #fff; color: #1d4ed8; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* ── PVR chips ────────────────────────────────────── */
+        .pvr-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .pvr-btn {
+            padding: 6px 14px; border-radius: 20px; border: 1.5px solid #d1d5db;
+            font-size: 0.8rem; font-weight: 600; cursor: pointer;
+            background: #fff; color: #374151;
+            transition: all 0.15s;
+        }
+        .pvr-btn:hover  { border-color: #6b7280; }
+        .pvr-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+        .pvr-btn.active.pvr-c { background: #d97706; border-color: #d97706; }
+        .pvr-btn.active.pvr-d { background: #dc2626; border-color: #dc2626; }
+    </style>
+</head>
+<body>
+
+<!-- ── PAGE HEADER ────────────────────────────────────────────────── -->
+<div style="background: linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%); padding: 28px 0 24px;">
+    <div class="container mx-auto max-w-7xl px-4 sm:px-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <a href="index.html" style="color: rgba(255,255,255,0.5); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 4px; transition: color 0.15s;" onmouseover="this.style.color='rgba(255,255,255,0.85)'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">← Paulus Lab · JHU</a>
+                <h1 style="color: #fff; font-size: 1.7rem; font-weight: 700; line-height: 1.2;">Retinal Detachment Repair<br>Success Calculator</h1>
+            </div>
+            <div style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 8px 14px; text-align: right; max-width: 220px;">
+                <p style="color: #fbbf24; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">⚠ Research Prototype</p>
+                <p style="color: rgba(255,255,255,0.7); font-size: 0.7rem; margin-top: 2px;">Not validated for clinical use</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mx-auto max-w-7xl px-4 sm:px-8 py-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+<!-- ═══════════════════════════════════════════════════════
+     LEFT PANEL — Form
+════════════════════════════════════════════════════════ -->
+<div class="lg:col-span-2 space-y-4">
+
+    <!-- 1. Patient Demographics -->
+    <div class="section-card">
+        <div class="section-header">
+            <div class="section-icon" style="background:#dbeafe;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            </div>
+            <span class="section-title">Patient Demographics</span>
+        </div>
+        <div class="section-body">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="field-label" for="Age">Age (years)</label>
+                    <input type="number" id="Age" class="custom-input" value="60" min="1" max="110">
+                </div>
+                <div>
+                    <label class="field-label" for="gender">Sex</label>
+                    <select id="gender" class="custom-select">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Unknown">Other / Unknown</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="laterality">Eye</label>
+                    <select id="laterality" class="custom-select">
+                        <option value="OD">Right Eye (OD)</option>
+                        <option value="OS">Left Eye (OS)</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="first_race">Race</label>
+                    <select id="first_race" class="custom-select">
+                        <option value="Unknown">Unknown / Other</option>
+                        <option value="White">White</option>
+                        <option value="Black">Black</option>
+                        <option value="Asian">Asian</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="ethnic_group">Ethnicity</label>
+                    <select id="ethnic_group" class="custom-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="Not Hispanic">Not Hispanic</option>
+                        <option value="Hispanic">Hispanic</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Ocular & Medical History -->
+    <div class="section-card">
+        <div class="section-header">
+            <div class="section-icon" style="background:#fef3c7;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+            </div>
+            <span class="section-title">Ocular &amp; Medical History</span>
+        </div>
+        <div class="section-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                <div>
+                    <p style="font-size:0.72rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Ocular</p>
+                    <label class="cb-item"><input id="RF_is_Myopia" type="checkbox"><span class="cb-label">High Myopia (≥ −6D)</span></label>
+                    <label class="cb-item"><input id="RF_is_Lattice" type="checkbox"><span class="cb-label">Lattice Degeneration</span></label>
+                    <label class="cb-item"><input id="RF_is_Uveitis" type="checkbox"><span class="cb-label">History of Uveitis</span></label>
+                    <label class="cb-item"><input id="RF_is_Retinitis" type="checkbox"><span class="cb-label">History of Retinitis (e.g. CMV)</span></label>
+                    <label class="cb-item"><input id="RF_is_ROP" type="checkbox"><span class="cb-label">History of ROP</span></label>
+                    <label class="cb-item"><input id="RF_is_Glaucoma_ICD" type="checkbox"><span class="cb-label">History of Glaucoma</span></label>
+                    <label class="cb-item"><input id="RF_is_on_Glaucoma_Med" type="checkbox"><span class="cb-label">On Glaucoma Medications</span></label>
+                    <label class="cb-item"><input id="RF_prior_VR_surgery" type="checkbox"><span class="cb-label">Prior Vitreoretinal Surgery</span></label>
+                </div>
+                <div>
+                    <p style="font-size:0.72rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Systemic</p>
+                    <label class="cb-item"><input id="RF_is_Diabetes" type="checkbox"><span class="cb-label">Diabetes</span></label>
+                    <label class="cb-item"><input id="RF_is_SystemicHypertension" type="checkbox"><span class="cb-label">Systemic Hypertension</span></label>
+                    <label class="cb-item"><input id="RF_is_Trauma" type="checkbox"><span class="cb-label">Ocular Trauma (cause of RD)</span></label>
+                    <label class="cb-item"><input id="RF_is_VitreousHemorrhage" type="checkbox"><span class="cb-label">Vitreous Hemorrhage at Presentation</span></label>
+                    <label class="cb-item"><input id="RF_is_on_Steroid" type="checkbox"><span class="cb-label">On Systemic Steroids</span></label>
+                    <label class="cb-item"><input id="RF_is_Smoking" type="checkbox"><span class="cb-label">Current or Former Smoker</span></label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Disease Severity -->
+    <div class="section-card">
+        <div class="section-header">
+            <div class="section-icon" style="background:#fee2e2;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <span class="section-title">Disease Severity</span>
+        </div>
+        <div class="section-body space-y-5">
+
+            <!-- Macula status -->
+            <div>
+                <label class="field-label">Macula Status</label>
+                <div class="seg-control" id="macula-control">
+                    <button type="button" class="seg-btn"        data-value="On"      onclick="setSeg('macula-control','On')">Macula On</button>
+                    <button type="button" class="seg-btn"        data-value="Off"     onclick="setSeg('macula-control','Off')">Macula Off</button>
+                    <button type="button" class="seg-btn active" data-value="Unknown" onclick="setSeg('macula-control','Unknown')">Unknown</button>
+                </div>
+                <input type="hidden" id="macula_status" value="Unknown">
+            </div>
+
+            <!-- PVR Grade -->
+            <div>
+                <label class="field-label">PVR Grade</label>
+                <div class="pvr-group" id="pvr-group">
+                    <button type="button" class="pvr-btn active" data-value="Unknown" onclick="setPVR('Unknown')">Unknown</button>
+                    <button type="button" class="pvr-btn"        data-value="None"    onclick="setPVR('None')">None</button>
+                    <button type="button" class="pvr-btn"        data-value="A"       onclick="setPVR('A')">A</button>
+                    <button type="button" class="pvr-btn"        data-value="B"       onclick="setPVR('B')">B</button>
+                    <button type="button" class="pvr-btn pvr-c"  data-value="C"       onclick="setPVR('C')">C</button>
+                    <button type="button" class="pvr-btn pvr-d"  data-value="D"       onclick="setPVR('D')">D</button>
+                </div>
+                <input type="hidden" id="pvr_grade" value="Unknown">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="field-label" for="detachment_quadrants">Detachment Extent</label>
+                    <select id="detachment_quadrants" class="custom-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="1">1 Quadrant</option>
+                        <option value="2">2 Quadrants</option>
+                        <option value="3">3 Quadrants</option>
+                        <option value="4">4 Quadrants (Total)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="break_location">Break Location</label>
+                    <select id="break_location" class="custom-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="Superior">Superior</option>
+                        <option value="Inferior">Inferior</option>
+                        <option value="Posterior">Posterior / Macular</option>
+                        <option value="Multiple">Multiple</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="break_type">Break Type</label>
+                    <select id="break_type" class="custom-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="Horseshoe">Horseshoe Tear</option>
+                        <option value="Atrophic">Atrophic Hole</option>
+                        <option value="Giant">Giant Retinal Tear</option>
+                        <option value="Dialysis">Dialysis</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label" for="symptom_duration_days">Symptom Duration (days)</label>
+                    <input type="number" id="symptom_duration_days" class="custom-input" placeholder="e.g. 7" min="0">
+                </div>
+                <div>
+                    <label class="field-label" for="IOP_presentation">IOP at Presentation (mmHg)</label>
+                    <input type="number" id="IOP_presentation" class="custom-input" placeholder="e.g. 14" min="0" max="80">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 4. Pre-operative Exam -->
+    <div class="section-card">
+        <div class="section-header">
+            <div class="section-icon" style="background:#ede9fe;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg>
+            </div>
+            <span class="section-title">Pre-operative Exam</span>
+        </div>
+        <div class="section-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- Pre-op VA Slider -->
+                <div class="md:col-span-2">
+                    <label class="field-label">Pre-operative Best-Corrected Visual Acuity</label>
+                    <div style="background:#f9fafb; border:1.5px solid #e5e7eb; border-radius:10px; padding:16px 18px;">
+                        <div class="flex items-baseline gap-3 mb-4">
+                            <span id="va-snellen-display" style="font-size:2rem;font-weight:700;color:#1d4ed8;line-height:1;">20/200</span>
+                            <span id="va-logmar-display" style="font-size:0.9rem;color:#6b7280;font-weight:500;">LogMAR 1.0</span>
+                        </div>
+                        <input type="range" id="VA_LogMAR_PreOp" class="va-slider" min="0" max="30" step="1" value="10">
+                        <!-- Ticks positioned to align with actual slider thumb positions -->
+                        <div style="position:relative; height:30px; margin-top:6px;">
+                            <div class="va-tick" style="position:absolute;left:calc(0% + 11px);transform:translateX(-50%)">20/20<br><span style="color:#16a34a">●</span></div>
+                            <div class="va-tick" style="position:absolute;left:calc(10% + 8.8px);transform:translateX(-50%)">20/40</div>
+                            <div class="va-tick" style="position:absolute;left:calc(23.3% + 5.9px);transform:translateX(-50%)">20/100</div>
+                            <div class="va-tick" style="position:absolute;left:calc(33.3% + 3.7px);transform:translateX(-50%)">20/200</div>
+                            <div class="va-tick" style="position:absolute;left:calc(43.3% + 1.5px);transform:translateX(-50%)">20/400</div>
+                            <div class="va-tick" style="position:absolute;left:calc(60% - 2.2px);transform:translateX(-50%)">CF</div>
+                            <div class="va-tick" style="position:absolute;left:calc(76.7% - 5.9px);transform:translateX(-50%)">HM</div>
+                            <div class="va-tick" style="position:absolute;left:calc(93.3% - 9.5px);transform:translateX(-50%)">LP</div>
+                            <div class="va-tick" style="position:absolute;left:calc(100% - 11px);transform:translateX(-50%);color:#7c3aed;">NLP<br><span>●</span></div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="VA_LogMAR_precise" value="1.0">
+                </div>
+
+                <!-- VA at RD Diagnosis Slider -->
+                <div class="md:col-span-2">
+                    <label class="field-label">VA at RD Diagnosis</label>
+                    <div style="background:#f9fafb; border:1.5px solid #e5e7eb; border-radius:10px; padding:16px 18px;">
+                        <div class="flex items-baseline gap-3 mb-4">
+                            <span id="va-diag-snellen-display" style="font-size:2rem;font-weight:700;color:#1d4ed8;line-height:1;">20/200</span>
+                            <span id="va-diag-logmar-display" style="font-size:0.9rem;color:#6b7280;font-weight:500;">LogMAR 1.0</span>
+                        </div>
+                        <input type="range" id="VA_LogMAR_Diag" class="va-slider" min="0" max="30" step="1" value="10">
+                        <div style="position:relative; height:30px; margin-top:6px;">
+                            <div class="va-tick" style="position:absolute;left:calc(0% + 11px);transform:translateX(-50%)">20/20<br><span style="color:#16a34a">●</span></div>
+                            <div class="va-tick" style="position:absolute;left:calc(10% + 8.8px);transform:translateX(-50%)">20/40</div>
+                            <div class="va-tick" style="position:absolute;left:calc(23.3% + 5.9px);transform:translateX(-50%)">20/100</div>
+                            <div class="va-tick" style="position:absolute;left:calc(33.3% + 3.7px);transform:translateX(-50%)">20/200</div>
+                            <div class="va-tick" style="position:absolute;left:calc(43.3% + 1.5px);transform:translateX(-50%)">20/400</div>
+                            <div class="va-tick" style="position:absolute;left:calc(60% - 2.2px);transform:translateX(-50%)">CF</div>
+                            <div class="va-tick" style="position:absolute;left:calc(76.7% - 5.9px);transform:translateX(-50%)">HM</div>
+                            <div class="va-tick" style="position:absolute;left:calc(93.3% - 9.5px);transform:translateX(-50%)">LP</div>
+                            <div class="va-tick" style="position:absolute;left:calc(100% - 11px);transform:translateX(-50%);color:#7c3aed;">NLP<br><span>●</span></div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="VA_LogMAR_Diag_precise" value="1.0">
+                </div>
+
+                <div>
+                    <label class="field-label" for="LensStatus">Lens Status</label>
+                    <select id="LensStatus" class="custom-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="Phakic">Phakic (Natural Lens)</option>
+                        <option value="Pseudophakic">Pseudophakic (IOL)</option>
+                        <option value="Aphakic">Aphakic (No Lens)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="anesthesia_type">Anesthesia Type</label>
+                    <select id="anesthesia_type" class="custom-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="General">General</option>
+                        <option value="Monitored Anesthesia Care">Monitored Anesthesia Care (MAC)</option>
+                        <option value="Local">Local / Regional</option>
+                    </select>
+                </div>
+                <!-- Tamponade moved to Surgical Plan (shown after results) -->
+                <input type="hidden" id="tamponade_agent" value="Unknown">
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. OCT Upload -->
+    <div class="section-card">
+        <div class="section-header">
+            <div class="section-icon" style="background:#d1fae5;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </div>
+            <span class="section-title">Pre-operative OCT Scan</span>
+            <span style="margin-left:auto;background:#dbeafe;color:#1d4ed8;font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:0.04em;">TRACK B · IN DEVELOPMENT</span>
+        </div>
+        <div class="section-body">
+            <p style="font-size:0.8rem;color:#6b7280;margin-bottom:12px;">
+                Upload a macular OCT scan to enable AI segmentation (SRF, IRC, ORC, ERM biomarkers) for the Track B combined model.
+                Image is captured locally only in this prototype — not transmitted to the server.
+            </p>
+            <div class="oct-zone" id="oct-drop-zone" onclick="document.getElementById('oct-file-input').click()">
+                <input type="file" id="oct-file-input" accept="image/*,.dcm" class="hidden">
+                <div id="oct-upload-idle">
+                    <svg class="mx-auto mb-2" style="color:#9ca3af" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5V19a2 2 0 002 2h14a2 2 0 002-2v-2.5M16 10l-4-4m0 0L8 10m4-4v12"/>
+                    </svg>
+                    <p style="font-size:0.84rem;font-weight:600;color:#374151;">Click or drag &amp; drop OCT image</p>
+                    <p style="font-size:0.72rem;color:#9ca3af;margin-top:3px;">JPEG, PNG, or DICOM (.dcm) — macular B-scan or cube scan</p>
+                </div>
+                <div id="oct-upload-done" class="hidden">
+                    <p style="font-size:0.84rem;font-weight:600;color:#15803d;" id="oct-file-name"></p>
+                    <p style="font-size:0.72rem;color:#16a34a;margin-top:3px;">Image ready — will activate Track B when backend is available</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calculate button -->
+    <button id="calculate-btn" type="button"
+        style="width:100%;padding:15px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-size:1rem;font-weight:700;border-radius:12px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.4);transition:opacity 0.2s,transform 0.1s;letter-spacing:0.02em;"
+        onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'"
+        onmousedown="this.style.transform='scale(0.99)'" onmouseup="this.style.transform='scale(1)'">
+        Calculate Success Probability
+    </button>
+
+</div><!-- end left panel -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     RIGHT PANEL — Results
+════════════════════════════════════════════════════════ -->
+<div class="lg:col-span-1">
+<div style="position:sticky;top:20px;display:flex;flex-direction:column;gap:14px;">
+
+    <!-- Results card -->
+    <div class="section-card">
+        <div class="section-header">
+            <div class="section-icon" style="background:#dbeafe;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <span class="section-title">Predicted Outcomes</span>
+        </div>
+
+        <!-- Placeholder -->
+        <div id="results-placeholder" style="padding:40px 20px;text-align:center;color:#9ca3af;">
+            <svg class="mx-auto mb-3" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#d1d5db"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <p style="font-size:0.84rem;font-weight:500;">Fill in the form and press<br><strong>Calculate</strong> to see results.</p>
+        </div>
+
+        <!-- Results body -->
+        <div id="results-container" class="hidden">
+            <div style="padding:16px 18px;border-bottom:1px solid #f3f4f6;">
+                <p style="font-size:0.75rem;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:2px;">180-Day SSAS by Surgical Approach</p>
+                <p style="font-size:0.71rem;color:#9ca3af;">Single Surgery Anatomic Success — retina remains attached after one operation</p>
+            </div>
+            <div style="padding:12px 18px 4px;" id="surgery-cards-container"></div>
+
+            <!-- Surgical Plan Panel — appears when a surgery card is clicked -->
+            <div id="surgical-plan-panel" class="hidden" style="margin:0 12px 12px;border:1.5px solid #3b82f6;border-radius:10px;overflow:hidden;">
+                <div style="background:#1d4ed8;padding:9px 14px;display:flex;align-items:center;gap:8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span style="color:#fff;font-size:0.8rem;font-weight:700;">Surgical Plan</span>
+                    <span style="color:#93c5fd;font-size:0.78rem;">—</span>
+                    <span id="plan-surgery-label" style="color:#bfdbfe;font-size:0.78rem;font-weight:600;"></span>
+                </div>
+                <div style="padding:12px 14px;background:#f8faff;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <!-- Tamponade -->
+                    <div>
+                        <label class="field-label" for="plan_tamponade" style="font-size:0.73rem;">Tamponade Agent</label>
+                        <select id="plan_tamponade" class="custom-select" style="font-size:0.8rem;padding:7px 32px 7px 10px;" onchange="document.getElementById('tamponade_agent').value=this.value; updatePlanResults();">
+                            <option value="Unknown">Unknown / TBD</option>
+                            <option value="SF6">SF6 Gas</option>
+                            <option value="C3F8">C3F8 Gas</option>
+                            <option value="Air">Air</option>
+                            <option value="Silicone Oil">Silicone Oil</option>
+                        </select>
+                    </div>
+                    <!-- Surgery Duration -->
+                    <div>
+                        <label class="field-label" for="plan_duration" style="font-size:0.73rem;">Surgery Duration</label>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" id="plan_duration" class="custom-input" min="15" max="480" step="5" value="90" oninput="updatePlanResults()" style="width:72px;font-size:0.8rem;padding:7px 10px;">
+                            <span style="font-size:0.78rem;color:#6b7280;white-space:nowrap;">min</span>
+                        </div>
+                    </div>
+                    <!-- Gauge Size -->
+                    <div style="grid-column:1/-1;">
+                        <label class="field-label" style="font-size:0.73rem;margin-bottom:6px;">Gauge Size</label>
+                        <div class="seg-control" id="gauge-control" style="gap:3px;">
+                            <button class="seg-btn" data-value="20" onclick="setGauge('20')">20g</button>
+                            <button class="seg-btn active" data-value="23" onclick="setGauge('23')">23g</button>
+                            <button class="seg-btn" data-value="25" onclick="setGauge('25')">25g</button>
+                            <button class="seg-btn" data-value="27" onclick="setGauge('27')">27g</button>
+                            <button class="seg-btn" data-value="28" onclick="setGauge('28')">28g</button>
+                        </div>
+                        <input type="hidden" id="plan_gauge" value="23">
+                    </div>
+                    <!-- Adjuvant Interventions -->
+                    <div style="grid-column:1/-1;">
+                        <label class="field-label" style="font-size:0.73rem;margin-bottom:4px;">Adjuvant Interventions</label>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <label class="cb-item" style="padding:5px 10px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fff;">
+                                <input type="checkbox" id="plan_endolaser" onchange="updatePlanResults()" style="width:15px;height:15px;">
+                                <span class="cb-label" style="font-size:0.8rem;">Endolaser</span>
+                            </label>
+                            <label class="cb-item" style="padding:5px 10px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fff;">
+                                <input type="checkbox" id="plan_pfo" onchange="updatePlanResults()" style="width:15px;height:15px;">
+                                <span class="cb-label" style="font-size:0.8rem;">Perfluorocarbon (PFO)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ── Plan Results (adjusted SASS + complications) ── -->
+                    <div id="plan-results-section" style="grid-column:1/-1; display:none; border-top:1.5px solid #dbeafe; margin-top:6px; padding-top:12px;">
+                        <!-- Adjusted success -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:10px;">
+                            <div>
+                                <div style="font-size:0.72rem;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.06em;">Adjusted SSAS</div>
+                                <div id="plan-sass-delta" style="font-size:0.72rem;color:#6b7280;margin-top:2px;"></div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div id="plan-sass-pct" style="font-size:2.2rem;font-weight:800;line-height:1;"></div>
+                                <div id="plan-sass-vs" style="font-size:0.68rem;color:#9ca3af;margin-top:2px;"></div>
+                            </div>
+                        </div>
+                        <!-- Complication risks -->
+                        <div style="font-size:0.72rem;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:7px;">
+                            Procedure Risk Profile
+                        </div>
+                        <div id="plan-complication-list"></div>
+                        <p style="font-size:0.64rem;color:#9ca3af;margin-top:8px;line-height:1.4;">
+                            Risk estimates are simulated from published VR surgery literature (BEAVRS, UK EMR RD study) and adjusted for patient comorbidities. Not validated for clinical use.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <p style="font-size:0.67rem;color:#c4c4c4;padding:0 18px 10px;text-align:center;">Elastic Net · AUROC 0.74 · Paulus Lab - JHU · N=1,740</p>
+        </div>
+    </div>
+
+    <!-- Transparency card -->
+    <div class="section-card" id="transparency-card" style="display:none;">
+        <div class="section-header">
+            <div class="section-icon" style="background:#fef9c3;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <span class="section-title">How was this calculated?</span>
+        </div>
+        <div style="padding:14px 18px;">
+            <p style="font-size:0.78rem;color:#374151;margin-bottom:10px;" id="transparency-intro"></p>
+            <div id="factor-list" style="line-height:1.9;"></div>
+            <p style="font-size:0.68rem;color:#9ca3af;margin-top:10px;line-height:1.5;">
+                Factor directions are derived from elastic-net coefficients (logistic regression with L1+L2 penalty) trained on a 10-year retrospective cohort at the Paulus Lab, Johns Hopkins University. Predictions are not a substitute for clinical judgment.
+            </p>
+        </div>
+    </div>
+
+    <!-- VA card -->
+    <div class="section-card" id="va-card" style="display:none;">
+        <div class="section-header">
+            <div class="section-icon" style="background:#ede9fe;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg>
+            </div>
+            <span class="section-title">Predicted 6-Month VA</span>
+        </div>
+        <div style="padding:16px 18px;text-align:center;">
+            <div id="result-va" style="font-size:2.4rem;font-weight:700;color:#7c3aed;line-height:1;">---</div>
+            <p id="result-va-logmar" style="font-size:0.82rem;color:#9ca3af;margin-top:4px;">(LogMAR: ---)</p>
+            <p style="font-size:0.7rem;color:#c4c4c4;margin-top:6px;">Based on pre-op VA + comorbidity profile</p>
+        </div>
+    </div>
+
+</div>
+</div><!-- end right panel -->
+
+</div><!-- end grid -->
+</div><!-- end container -->
+
+<script>
+    // ── VA slider mappings ──────────────────────────────────────────────
+    // Slider has 31 steps (0–30) mapping to LogMAR 0.0–3.0 in 0.1 increments
+    // But we add clinical snap-labels at key points.
+    const VA_LOGMAR_MAP = [
+        { step:0,  logmar:0.0,  snellen:"20/20" },
+        { step:3,  logmar:0.3,  snellen:"20/40" },
+        { step:7,  logmar:0.7,  snellen:"20/100" },
+        { step:10, logmar:1.0,  snellen:"20/200" },
+        { step:13, logmar:1.3,  snellen:"20/400" },
+        { step:18, logmar:1.8,  snellen:"Count Fingers" },
+        { step:23, logmar:2.3,  snellen:"Hand Motion" },
+        { step:28, logmar:2.8,  snellen:"Light Perception" },
+        { step:30, logmar:3.0,  snellen:"No Light Perception" },
+    ];
+
+    function logMarToSnellen(logMAR) {
+        const d = 20 * Math.pow(10, logMAR);
+        if (logMAR <= 0.0)               return "20/20";
+        if (d <= 20)                      return "20/20";
+        if (d < 30)                       return "20/25";
+        if (d < 50)                       return "20/40";
+        if (d < 70)                       return "20/60";
+        if (d < 90)                       return "20/80";
+        if (d < 150)                      return "20/100";
+        if (d < 300)                      return "20/200";
+        if (d < 600)                      return "20/400";
+        if (d < 1000)                     return "20/800";
+        if (logMAR >= 1.8 && logMAR < 2.3) return "Count Fingers";
+        if (logMAR >= 2.3 && logMAR < 2.8) return "Hand Motion";
+        if (logMAR >= 2.8 && logMAR < 3.0) return "Light Perception";
+        return "No Light Perception";
+    }
+
+    function makeVASlider(sliderId, snellenId, logmarId, preciseId) {
+        const slider  = document.getElementById(sliderId);
+        const snellen = document.getElementById(snellenId);
+        const logmar  = document.getElementById(logmarId);
+        const precise = document.getElementById(preciseId);
+        function update() {
+            const step = parseInt(slider.value);
+            const lm   = step / 10;
+            const sn   = logMarToSnellen(lm);
+            snellen.textContent = sn;
+            logmar.textContent  = `LogMAR ${lm.toFixed(1)}`;
+            precise.value = lm.toFixed(1);
+            if (lm <= 0.3)      snellen.style.color = '#16a34a';
+            else if (lm <= 1.0) snellen.style.color = '#d97706';
+            else if (lm <= 1.7) snellen.style.color = '#ea580c';
+            else                snellen.style.color = '#7c3aed';
+        }
+        slider.addEventListener('input', update);
+        update();
+    }
+    makeVASlider('VA_LogMAR_PreOp',  'va-snellen-display',      'va-logmar-display',      'VA_LogMAR_precise');
+    makeVASlider('VA_LogMAR_Diag',   'va-diag-snellen-display', 'va-diag-logmar-display', 'VA_LogMAR_Diag_precise');
+
+    // ── Segmented control ───────────────────────────────────────────────
+    function setSeg(groupId, value) {
+        document.querySelectorAll(`#${groupId} .seg-btn`).forEach(b => {
+            b.classList.toggle('active', b.dataset.value === value);
+        });
+        document.getElementById(
+            groupId === 'macula-control' ? 'macula_status' : groupId
+        ).value = value;
+    }
+
+    // ── PVR chips ───────────────────────────────────────────────────────
+    function setPVR(value) {
+        document.querySelectorAll('#pvr-group .pvr-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.value === value);
+        });
+        document.getElementById('pvr_grade').value = value;
+    }
+
+    // ── OCT upload ──────────────────────────────────────────────────────
+    const octInput = document.getElementById('oct-file-input');
+    const octZone  = document.getElementById('oct-drop-zone');
+    const octIdle  = document.getElementById('oct-upload-idle');
+    const octDone  = document.getElementById('oct-upload-done');
+    octInput.addEventListener('change', () => { if (octInput.files.length) showOctFile(octInput.files[0].name); });
+    octZone.addEventListener('dragover', e => { e.preventDefault(); octZone.classList.add('drag-over'); });
+    octZone.addEventListener('dragleave', () => octZone.classList.remove('drag-over'));
+    octZone.addEventListener('drop', e => {
+        e.preventDefault(); octZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) showOctFile(e.dataTransfer.files[0].name);
+    });
+    function showOctFile(name) {
+        octZone.classList.add('has-file');
+        octIdle.classList.add('hidden');
+        octDone.classList.remove('hidden');
+        document.getElementById('oct-file-name').textContent = name;
+    }
+
+    // ── Plan state ──────────────────────────────────────────────────────
+    let sassResults = {};        // { PPV: 82, SB: 71, ... } — stored after API call
+    let lastBaseInputs = null;   // form inputs snapshot for complication calcs
+    let selectedSurgeryValue = null;
+
+    // ── Surgery types ───────────────────────────────────────────────────
+    const SURGERY_TYPES = [
+        { value:"PPV",     label:"PPV",           sub:"Pars Plana Vitrectomy" },
+        { value:"SB",      label:"Scleral Buckle", sub:"SB only" },
+        { value:"PPV_SB",  label:"PPV + SB",       sub:"Combined approach" },
+        { value:"PNR",     label:"Pneumatic",       sub:"Pneumatic Retinopexy" },
+        { value:"COMPLEX", label:"Complex Repair",  sub:"PPV + PVR management" },
+    ];
+
+    // ── Factor map ──────────────────────────────────────────────────────
+    const FACTOR_MAP = [
+        { id:'RF_is_Diabetes',            label:'Diabetes',               dir:-1 },
+        { id:'RF_is_Trauma',              label:'Traumatic cause',         dir:-1 },
+        { id:'RF_is_Uveitis',             label:'Uveitis history',         dir:-1 },
+        { id:'RF_is_Retinitis',           label:'Retinitis history',       dir:-1 },
+        { id:'RF_is_ROP',                 label:'ROP history',             dir:-1 },
+        { id:'RF_is_VitreousHemorrhage',  label:'Vitreous hemorrhage',     dir:-1 },
+        { id:'RF_is_on_Steroid',          label:'Steroid use',             dir:-1 },
+        { id:'RF_is_Glaucoma_ICD',        label:'Glaucoma',                dir:-1 },
+        { id:'RF_is_SystemicHypertension',label:'Hypertension',            dir:-1 },
+        { id:'RF_is_Myopia',              label:'High myopia',             dir:-1 },
+        { id:'RF_is_Lattice',             label:'Lattice degeneration',    dir:-1 },
+        { id:'RF_is_on_Glaucoma_Med',     label:'Glaucoma meds',           dir:-1 },
+        { id:'RF_is_Smoking',             label:'Smoking',                 dir:-1 },
+        { id:'RF_prior_VR_surgery',       label:'Prior VR surgery',        dir:-1 },
+    ];
+
+    function getActiveFactors(inputs) {
+        const active = [];
+        for (const f of FACTOR_MAP) {
+            if (inputs[f.id] === 1) active.push(f);
+        }
+        // VA
+        const va = inputs.VA_LogMAR_PreOp;
+        if      (va >= 2.0) active.push({ label:'Very poor pre-op VA', dir:-1 });
+        else if (va >= 1.3) active.push({ label:'Poor pre-op VA (≥20/400)', dir:-1 });
+        else if (va <= 0.3) active.push({ label:'Good pre-op VA (≤20/40)', dir:1 });
+        // Lens
+        if (inputs.LensStatus === 'Aphakic') active.push({ label:'Aphakic lens', dir:-1 });
+        if (inputs.LensStatus === 'Phakic')  active.push({ label:'Phakic (natural lens)', dir:1 });
+        // Macula
+        if (inputs.macula_status === 'Off')  active.push({ label:'Macula off', dir:-1 });
+        if (inputs.macula_status === 'On')   active.push({ label:'Macula on', dir:1 });
+        // PVR
+        const pvr = inputs.pvr_grade;
+        if (pvr === 'C' || pvr === 'D')      active.push({ label:`PVR Grade ${pvr}`, dir:-1 });
+        else if (pvr === 'A' || pvr === 'B') active.push({ label:`PVR Grade ${pvr}`, dir:-1 });
+        // Detachment extent
+        const q = parseInt(inputs.detachment_quadrants);
+        if (q >= 3) active.push({ label:`${q}-quadrant detachment`, dir:-1 });
+        else if (q === 1) active.push({ label:'1-quadrant detachment', dir:1 });
+        // Age
+        if      (inputs.Age >= 75) active.push({ label:'Age ≥75', dir:-1 });
+        else if (inputs.Age <= 40) active.push({ label:'Younger age (≤40)', dir:1 });
+
+        if (active.length === 0) active.push({ label:'No major risk modifiers identified', dir:0 });
+        return active;
+    }
+
+    // ── Calculate ────────────────────────────────────────────────────────
+    const calculateBtn = document.getElementById('calculate-btn');
+    calculateBtn.addEventListener('click', calculateRisk);
+
+    async function calculateRisk() {
+        calculateBtn.disabled = true;
+        calculateBtn.textContent = 'Calculating…';
+        document.getElementById('results-placeholder').classList.add('hidden');
+        document.getElementById('results-container').classList.remove('hidden');
+        document.getElementById('transparency-card').style.display = 'none';
+        document.getElementById('va-card').style.display = 'none';
+        document.getElementById('surgical-plan-panel').classList.add('hidden');
+        document.getElementById('plan-results-section').style.display = 'none';
+        sassResults = {}; selectedSurgeryValue = null;
+
+        const base = {
+            Age:                parseInt(document.getElementById('Age').value) || 60,
+            gender:             document.getElementById('gender').value,
+            SurgeryRank:        1,
+            LensStatus:         document.getElementById('LensStatus').value,
+            first_race:         document.getElementById('first_race').value,
+            ethnic_group:       document.getElementById('ethnic_group').value,
+            anesthesia_type:    document.getElementById('anesthesia_type').value,
+            primary_surgeon_id: 'Unknown',
+            VA_LogMAR_PreOp:    parseFloat(document.getElementById('VA_LogMAR_precise').value) || 1.0,
+            laterality:         document.getElementById('laterality').value,
+            macula_status:      document.getElementById('macula_status').value,
+            pvr_grade:          document.getElementById('pvr_grade').value,
+            detachment_quadrants: parseInt(document.getElementById('detachment_quadrants').value) || 1,
+            break_location:     document.getElementById('break_location').value,
+            break_type:         document.getElementById('break_type').value,
+            symptom_duration_days: parseInt(document.getElementById('symptom_duration_days').value) || 0,
+            IOP_presentation:   parseInt(document.getElementById('IOP_presentation').value) || 0,
+            tamponade_agent:    document.getElementById('tamponade_agent').value,
+            RF_is_Myopia:               document.getElementById('RF_is_Myopia').checked ? 1 : 0,
+            RF_is_Lattice:              document.getElementById('RF_is_Lattice').checked ? 1 : 0,
+            RF_is_Diabetes:             document.getElementById('RF_is_Diabetes').checked ? 1 : 0,
+            RF_is_Trauma:               document.getElementById('RF_is_Trauma').checked ? 1 : 0,
+            RF_is_Uveitis:              document.getElementById('RF_is_Uveitis').checked ? 1 : 0,
+            RF_is_Retinitis:            document.getElementById('RF_is_Retinitis').checked ? 1 : 0,
+            RF_is_ROP:                  document.getElementById('RF_is_ROP').checked ? 1 : 0,
+            RF_is_Glaucoma_ICD:         document.getElementById('RF_is_Glaucoma_ICD').checked ? 1 : 0,
+            RF_is_SystemicHypertension: document.getElementById('RF_is_SystemicHypertension').checked ? 1 : 0,
+            RF_is_VitreousHemorrhage:   document.getElementById('RF_is_VitreousHemorrhage').checked ? 1 : 0,
+            RF_is_on_Glaucoma_Med:      document.getElementById('RF_is_on_Glaucoma_Med').checked ? 1 : 0,
+            RF_is_on_Steroid:           document.getElementById('RF_is_on_Steroid').checked ? 1 : 0,
+            RF_is_Smoking:              document.getElementById('RF_is_Smoking').checked ? 1 : 0,
+            RF_prior_VR_surgery:        document.getElementById('RF_prior_VR_surgery').checked ? 1 : 0,
+        };
+
+        const API_URL = "https://lmunir-rd-risk-calc.hf.space/predict";
+        const container = document.getElementById('surgery-cards-container');
+        container.innerHTML = SURGERY_TYPES.map(s => surgeryCardHTML(s, null)).join('');
+
+        const results = await Promise.allSettled(
+            SURGERY_TYPES.map(s =>
+                fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...base, MethodOfRepair: s.value }),
+                }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            )
+        );
+
+        sassResults = {};
+        lastBaseInputs = base;
+        container.innerHTML = SURGERY_TYPES.map((s, i) => {
+            const res = results[i];
+            const pct = res.status === 'fulfilled' && !res.value.error
+                ? Math.round(res.value.probability_of_success * 100) : null;
+            if (pct !== null) sassResults[s.value] = pct;
+            return surgeryCardHTML(s, pct);
+        }).join('');
+
+        renderTransparency(base);
+
+        // VA prediction
+        const vaCoeffs = { k: 0.1, age: -0.0012, va: 0.3671, dm: 0.1538 };
+        let pred_va = vaCoeffs.k + vaCoeffs.age * base.Age + vaCoeffs.va * base.VA_LogMAR_PreOp + vaCoeffs.dm * base.RF_is_Diabetes;
+        if (base.macula_status === 'Off') pred_va += 0.25;
+        pred_va = Math.max(0, Math.min(3.0, pred_va));
+        document.getElementById('result-va').textContent = logMarToSnellen(pred_va);
+        document.getElementById('result-va-logmar').textContent = `(LogMAR: ${pred_va.toFixed(2)})`;
+        document.getElementById('va-card').style.display = '';
+
+        calculateBtn.disabled = false;
+        calculateBtn.textContent = 'Calculate Success Probability';
+    }
+
+    function surgeryCardHTML(s, pct) {
+        if (pct === null) {
+            return `<div class="surgery-card loading" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+                <div><div class="surgery-name">${s.label}</div><div class="surgery-sub">${s.sub}</div></div>
+                <div class="surgery-pct" style="color:#d1d5db">--%</div></div>`;
+        }
+        const cc = pct >= 80 ? 'pct-high' : pct >= 65 ? 'pct-mid' : 'pct-low';
+        const bc = pct >= 80 ? '#16a34a' : pct >= 65 ? '#d97706' : '#dc2626';
+        return `<div class="surgery-card" data-surgery="${s.value}" onclick="selectSurgery('${s.value}')" style="margin-bottom:8px;" title="Click to build surgical plan">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div><div class="surgery-name">${s.label}</div><div class="surgery-sub">${s.sub}</div></div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="surgery-pct ${cc}">${pct}%</div>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${bc}"></div></div>
+        </div>`;
+    }
+
+    function selectSurgery(value) {
+        selectedSurgeryValue = value;
+        document.querySelectorAll('#surgery-cards-container .surgery-card').forEach(c => {
+            c.classList.toggle('selected', c.dataset.surgery === value);
+        });
+        const sType = SURGERY_TYPES.find(s => s.value === value);
+        document.getElementById('plan-surgery-label').textContent = sType ? `${sType.label} · ${sType.sub}` : '';
+        document.getElementById('surgical-plan-panel').classList.remove('hidden');
+        updatePlanResults();
+    }
+
+    function setGauge(val) {
+        document.querySelectorAll('#gauge-control .seg-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.value === val);
+        });
+        document.getElementById('plan_gauge').value = val;
+        updatePlanResults();
+    }
+
+    // ── Plan results (adjusted SASS + complication risks) ────────────────
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function readPlanInputs() {
+        return {
+            tamponade: document.getElementById('plan_tamponade').value,
+            gauge:     document.getElementById('plan_gauge').value,
+            duration:  parseInt(document.getElementById('plan_duration').value) || 90,
+            endolaser: document.getElementById('plan_endolaser').checked,
+            pfo:       document.getElementById('plan_pfo').checked,
+        };
+    }
+
+    function computeAdjustedSASS(surgValue, basePct, plan) {
+        let delta = 0;
+        // Tamponade modifier (literature-calibrated)
+        const td = { 'SF6':1, 'C3F8':2, 'Air':-1, 'Silicone Oil':3, 'Unknown':0 };
+        delta += td[plan.tamponade] || 0;
+        // Gauge (smaller gauge = less trauma, slightly better healing)
+        const gd = { '20':-2, '23':0, '25':1, '27':1, '28':1 };
+        delta += gd[plan.gauge] || 0;
+        // Duration (longer = more complex, greater manipulation)
+        if      (plan.duration > 180) delta -= 5;
+        else if (plan.duration > 120) delta -= 3;
+        else if (plan.duration > 60)  delta -= 1;
+        // Adjuvants
+        if (plan.endolaser) delta += 2;
+        if (plan.pfo && (surgValue === 'PPV' || surgValue === 'PPV_SB' || surgValue === 'COMPLEX')) delta += 3;
+        return { adjusted: clamp(basePct + delta, 1, 99), delta };
+    }
+
+    function computeComplicationRisks(surgValue, plan, pat) {
+        if (!pat) return [];
+        const risks = [];
+        const pvr = pat.pvr_grade;
+        const pvrSevere = (pvr === 'C' || pvr === 'D');
+        const phakic  = pat.LensStatus === 'Phakic';
+        const dm      = pat.RF_is_Diabetes;
+        const htn     = pat.RF_is_SystemicHypertension;
+        const glc     = pat.RF_is_Glaucoma_ICD || pat.RF_is_on_Glaucoma_Med;
+        const ster    = pat.RF_is_on_Steroid;
+        const smk     = pat.RF_is_Smoking;
+        const priorSx = pat.RF_prior_VR_surgery;
+        const age75   = pat.Age >= 75;
+        const quads   = parseInt(pat.detachment_quadrants) || 1;
+
+        if (surgValue === 'PPV' || surgValue === 'PPV_SB' || surgValue === 'COMPLEX') {
+            // Re-detachment
+            let rd = surgValue === 'COMPLEX' ? 22 : surgValue === 'PPV_SB' ? 13 : 10;
+            if (pvrSevere) rd += 18; if (priorSx) rd += 10; if (quads >= 3) rd += 5;
+            if (plan.endolaser) rd -= 3; if (plan.pfo && pvrSevere) rd -= 4;
+            risks.push({ label:'Re-detachment (6-month)', pct: clamp(rd, 2, 65) });
+
+            // Endophthalmitis
+            let en = 0.07;
+            if (dm)   en *= 1.5; if (ster) en *= 1.4; if (smk) en *= 1.2;
+            if (plan.gauge === '20') en *= 1.3;
+            en += Math.max(0, (plan.duration - 60) / 30) * 0.015;
+            risks.push({ label:'Endophthalmitis', pct: clamp(en, 0.01, 2) });
+
+            // Cataract progression (phakic only)
+            if (phakic) {
+                let cat = 35;
+                if (pat.Age >= 65) cat += 10; if (plan.duration > 120) cat += 8;
+                if (plan.tamponade === 'Silicone Oil') cat += 15;
+                risks.push({ label:'Cataract progression (phakic)', pct: clamp(cat, 10, 85) });
+            }
+
+            // ERM formation
+            let erm = surgValue === 'COMPLEX' ? 18 : 10;
+            if (age75) erm += 5;
+            risks.push({ label:'ERM formation', pct: clamp(erm, 5, 40) });
+
+            // IOP elevation (gas tamponade)
+            if (plan.tamponade !== 'Unknown' && plan.tamponade !== 'Silicone Oil') {
+                let iop = 12;
+                if (glc) iop += 15; if (plan.tamponade === 'C3F8') iop += 3;
+                risks.push({ label:'IOP elevation (gas)', pct: clamp(iop, 3, 45) });
+            }
+            // Silicone Oil specific
+            if (plan.tamponade === 'Silicone Oil')
+                risks.push({ label:'Oil emulsification / removal needed', pct: 18 });
+
+            // PFO retention
+            if (plan.pfo)
+                risks.push({ label:'Retained PFO / subretinal PFO', pct: 1.8 });
+
+            // Choroidal detachment
+            let cho = 3;
+            if (htn) cho += 3; if (age75) cho += 2;
+            risks.push({ label:'Choroidal detachment', pct: clamp(cho, 1, 20) });
+
+            // Vitreous hemorrhage (from PFO or trauma)
+            if (plan.pfo || plan.gauge === '20')
+                risks.push({ label:'Post-op vitreous hemorrhage', pct: clamp(5 + (plan.gauge==='20'?3:0), 2, 15) });
+        }
+
+        if (surgValue === 'SB') {
+            let rd = 15;
+            if (pvrSevere) rd += 20; if (priorSx) rd += 8;
+            risks.push({ label:'Re-detachment (6-month)', pct: clamp(rd, 5, 55) });
+
+            let dip = 5;
+            if (pat.Age >= 65) dip += 2;
+            risks.push({ label:'Diplopia', pct: clamp(dip, 2, 20) });
+
+            let cho = 12;
+            if (htn) cho += 5;
+            risks.push({ label:'Choroidal detachment', pct: clamp(cho, 5, 35) });
+
+            let bkl = 1.5;
+            if (ster) bkl += 1; if (dm) bkl += 0.5;
+            risks.push({ label:'Buckle extrusion / infection', pct: clamp(bkl, 0.5, 8) });
+
+            risks.push({ label:'Induced myopia / refractive change', pct: 35 });
+        }
+
+        if (surgValue === 'PNR') {
+            let rd = 30;
+            if (pvrSevere) rd += 25; if (quads >= 2) rd += 10;
+            risks.push({ label:'Re-detachment (6-month)', pct: clamp(rd, 15, 75) });
+            risks.push({ label:'New break formation', pct: 8 });
+            risks.push({ label:'Endophthalmitis', pct: 0.05 });
+            risks.push({ label:'Incomplete gas fill / migration', pct: 7 });
+        }
+
+        return risks;
+    }
+
+    function renderComplicationRow({ label, pct }) {
+        const small = pct < 1;
+        const pctStr = small ? pct.toFixed(2) + '%' : Math.round(pct) + '%';
+        const barW = small ? Math.min(100, pct * 50) : Math.min(100, pct);
+        let color, sevBg, sevFg, sevLabel;
+        if (pct < 2)       { color='#16a34a'; sevBg='#dcfce7'; sevFg='#166534'; sevLabel='LOW'; }
+        else if (pct < 10) { color='#d97706'; sevBg='#fef9c3'; sevFg='#854d0e'; sevLabel='MOD'; }
+        else               { color='#dc2626'; sevBg='#fee2e2'; sevFg='#991b1b'; sevLabel='HIGH'; }
+        return `<div style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                <span style="font-size:0.78rem;color:#374151;font-weight:500;">${label}</span>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;">
+                    <span style="font-size:0.67rem;background:${sevBg};color:${sevFg};font-weight:700;padding:1px 6px;border-radius:999px;">${sevLabel}</span>
+                    <span style="font-size:0.82rem;font-weight:700;color:${color};min-width:36px;text-align:right;">${pctStr}</span>
+                </div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${barW}%;background:${color};"></div></div>
+        </div>`;
+    }
+
+    function updatePlanResults() {
+        if (!selectedSurgeryValue) return;
+        const basePct = sassResults[selectedSurgeryValue];
+        if (basePct == null) return;  // API result not available for this surgery
+
+        const plan   = readPlanInputs();
+        const pat    = lastBaseInputs;
+        const { adjusted, delta } = computeAdjustedSASS(selectedSurgeryValue, basePct, plan);
+
+        // Adjusted SASS display
+        const color = adjusted >= 80 ? '#16a34a' : adjusted >= 65 ? '#d97706' : '#dc2626';
+        const deltaStr = delta === 0 ? 'No change from base estimate'
+            : (delta > 0 ? `+${delta}% from plan` : `${delta}% from plan`);
+        const deltaColor = delta > 0 ? '#16a34a' : delta < 0 ? '#dc2626' : '#6b7280';
+        document.getElementById('plan-sass-pct').textContent  = adjusted + '%';
+        document.getElementById('plan-sass-pct').style.color  = color;
+        document.getElementById('plan-sass-delta').innerHTML  = `<span style="color:${deltaColor};font-weight:600;">${deltaStr}</span>`;
+        document.getElementById('plan-sass-vs').textContent   = `Base: ${basePct}% · Plan-adjusted: ${adjusted}%`;
+
+        // Complication risks
+        const risks = computeComplicationRisks(selectedSurgeryValue, plan, pat);
+        document.getElementById('plan-complication-list').innerHTML = risks.map(renderComplicationRow).join('');
+
+        // Show section
+        document.getElementById('plan-results-section').style.display = '';
+    }
+
+    function renderTransparency(inputs) {
+        const factors = getActiveFactors(inputs);
+        const neg = factors.filter(f => f.dir < 0).length;
+        const pos = factors.filter(f => f.dir > 0).length;
+        let intro;
+        if (neg === 0 && pos === 0) {
+            intro = "No significant risk modifiers were identified for this patient profile.";
+        } else {
+            intro = `${neg > 0 ? neg + ' risk factor' + (neg > 1 ? 's' : '') : 'No risk factors'}`
+                  + (pos > 0 ? ` and ${pos} favourable factor${pos > 1 ? 's' : ''}` : '')
+                  + ' influenced this estimate:';
+        }
+        document.getElementById('transparency-intro').textContent = intro;
+        document.getElementById('factor-list').innerHTML = factors.map(f => {
+            const cls = f.dir > 0 ? 'fp-good' : f.dir < 0 ? 'fp-bad' : 'fp-neutral';
+            const ic  = f.dir > 0 ? '↑' : f.dir < 0 ? '↓' : '·';
+            return `<span class="factor-pill ${cls}">${ic} ${f.label}</span>`;
+        }).join('');
+        document.getElementById('transparency-card').style.display = '';
+    }
+</script>
+</body>
+</html>
