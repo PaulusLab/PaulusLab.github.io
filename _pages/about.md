@@ -2,7 +2,7 @@
 layout: about
 title: about
 permalink: /
-subtitle: <a href='#'>Johns Hopkins Hospital</a>
+subtitle: Advancing retinal imaging, laser therapy, and AI-driven clinical care.
 
 profile:
   align: right
@@ -33,11 +33,9 @@ The Paulus Advanced Retinal Imaging and Laser Laboratory is a dynamic, diverse, 
 ## What We're Working On
 
 - **AI-assisted clinical decision support** — machine learning models and web-based calculators that help predict outcomes and guide treatment decisions for retinal detachment and age-related macular degeneration.
-- **Retinal imaging and laser therapy** — developing novel imaging systems and laser-based treatments for retinal disease.
 - **Large-scale clinical outcomes research** — using electronic health record data to study surgical and treatment outcomes at scale.
-- **Research infrastructure** — building the software tools and data pipelines that support the lab's ongoing studies.
 
-Contact
+## Contact
 
-Yannis M. Paulus, MD, FACS
-Email: ypaulus1@jh.edu
+**Yannis M. Paulus, MD, FACS**<br>
+Email: [ypaulus1@jh.edu](mailto:ypaulus1@jh.edu)
