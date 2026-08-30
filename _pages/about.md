@@ -30,6 +30,13 @@ The Paulus Advanced Retinal Imaging and Laser Laboratory is a dynamic, diverse, 
 
 <a href='https://www.hopkinsmedicine.org/wilmer/research/retina/paulus-lab'>Learn more</a> about the lab.
 
+## What We're Working On
+
+- **AI-assisted clinical decision support** — machine learning models and web-based calculators that help predict outcomes and guide treatment decisions for retinal detachment and age-related macular degeneration.
+- **Retinal imaging and laser therapy** — developing novel imaging systems and laser-based treatments for retinal disease.
+- **Large-scale clinical outcomes research** — using electronic health record data to study surgical and treatment outcomes at scale.
+- **Research infrastructure** — building the software tools and data pipelines that support the lab's ongoing studies.
+
 Contact
 
 Yannis M. Paulus, MD, FACS
