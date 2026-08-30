@@ -9,9 +9,16 @@ ninja.data = [{
     handler: () => {
       window.location.href = "/";
     },
-  },{id: "nav-projects",
-          title: "Projects",
-          description: "",
+  },{id: "nav-selected-publications",
+          title: "Selected Publications",
+          description: "A curated selection of recent lab publications on retinal imaging, laser therapy, and AI-driven clinical care.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/publications/";
+          },
+        },{id: "nav-tools",
+          title: "Tools",
+          description: "Clinical decision-support tools built by the lab.",
           section: "Navigation",
           handler: () => {
             window.location.href = "/projects/";
