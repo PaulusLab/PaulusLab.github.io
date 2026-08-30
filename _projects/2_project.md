@@ -2,9 +2,7 @@
 layout: page
 title: AMD Clinical Decision Support Tool
 description: Longitudinal patient profiling and treatment optimization for AMD
-img: assets/img/project-amd-tool.jpg
 importance: 2
-category: work
 related_publications: false
 ---
 

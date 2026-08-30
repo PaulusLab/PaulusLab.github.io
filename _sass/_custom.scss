@@ -84,3 +84,38 @@ article .clearfix {
     line-height: 1.7;
   }
 }
+
+// Tools page (project cards, no image — imageless card polish)
+
+.projects {
+  .card {
+    border: 1px solid var(--global-divider-color);
+    border-radius: 10px;
+    border-top: 3px solid var(--global-theme-color);
+    box-shadow: none;
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-body {
+      padding: 1.75rem 1.6rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-text {
+      color: var(--global-text-color-light);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+  }
+}

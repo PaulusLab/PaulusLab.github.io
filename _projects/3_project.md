@@ -2,9 +2,7 @@
 layout: page
 title: Lab Research Dashboard
 description: Internal project, task, and resource management platform
-img: assets/img/project-lab-dashboard.jpg
 importance: 3
-category: work
 related_publications: false
 ---
 

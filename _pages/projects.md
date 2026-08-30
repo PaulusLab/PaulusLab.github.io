@@ -1,11 +1,10 @@
 ---
 layout: page
-title: Projects
+title: Tools
 permalink: /projects/
-description: 
+description: Clinical decision-support tools built by the lab.
 nav: true
 nav_order: 3
-display_categories: [work, fun]
 horizontal: false
 ---
 

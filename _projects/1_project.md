@@ -2,9 +2,7 @@
 layout: page
 title: RDS Risk Calculator
 description: Predicting retinal detachment surgery outcomes
-img: assets/img/project-rds-calculator.jpg
 importance: 1
-category: work
 related_publications: false
 ---
 
