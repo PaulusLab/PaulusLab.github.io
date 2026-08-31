@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RD OCT Segmentation Tool — Paulus Lab</title>
+    <script src="vendor/tailwind.min.js"></script>
+    <link href="vendor/fonts/inter/inter.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0fdfa; min-height: 100vh; margin: 0; }
+
+        .page-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #164e63 100%);
+            padding: 40px 0 36px;
+        }
+        .page-header-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+        .page-title { color: #fff; font-size: 2rem; font-weight: 800; letter-spacing: -0.01em; }
+        .page-subtitle { color: rgba(255,255,255,0.65); font-size: 0.9rem; margin-top: 10px; max-width: 560px; line-height: 1.5; }
+        .research-badge {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
+            background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.4);
+            color: #fbbf24; padding: 6px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+        }
+
+        .content { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; }
+
+        .upload-zone {
+            border: 2px dashed #99f6e4; border-radius: 16px; background: #fff;
+            padding: 48px 24px; text-align: center; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .upload-zone.dragover { border-color: #0d9488; background: #f0fdfa; }
+        .upload-zone-icon { color: #0d9488; margin-bottom: 12px; }
+        .upload-zone-text { font-size: 0.95rem; color: #374151; font-weight: 600; }
+        .upload-zone-sub { font-size: 0.8rem; color: #9ca3af; margin-top: 4px; }
+
+        .loading-state { display: none; text-align: center; padding: 48px 24px; }
+        .loading-state.active { display: block; }
+        .loading-spinner {
+            width: 36px; height: 36px; border: 3px solid #ccfbf1; border-top-color: #0d9488;
+            border-radius: 50%; margin: 0 auto 16px; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 0.85rem; color: #6b7280; }
+
+        .error-state {
+            display: none; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+            border-radius: 10px; padding: 16px 20px; font-size: 0.85rem; margin-top: 16px;
+        }
+        .error-state.active { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="page-header">
+    <div class="page-header-inner">
+        <h1 class="page-title">RD OCT Segmentation Tool</h1>
+        <p class="page-subtitle">
+            Upload a retinal OCT B-scan image to segment four biomarkers relevant to
+            retinal detachment: subretinal fluid, outer/intraretinal cysts, and
+            epiretinal membrane. Built on a SegFormer-B4 model trained by the Paulus Lab.
+        </p>
+        <span class="research-badge">⚠ Research Prototype — Not for Clinical Use</span>
+    </div>
+</div>
+
+<div class="content">
+    <div id="upload-zone" class="upload-zone">
+        <div class="upload-zone-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+        </div>
+        <div class="upload-zone-text">Drag and drop an OCT B-scan image, or click to browse</div>
+        <div class="upload-zone-sub">PNG or JPG, single B-scan image</div>
+        <input type="file" id="file-input" accept="image/png,image/jpeg" style="display:none;">
+    </div>
+
+    <div id="loading-state" class="loading-state">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Running segmentation — first request may take up to a minute while the model wakes up.</div>
+    </div>
+
+    <div id="error-state" class="error-state"></div>
+
+    <div id="result-container"></div>
+
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; font-size: 0.75rem; color: #9ca3af; line-height: 1.5;">
+        This tool is a research prototype developed by the Paulus Lab at Johns Hopkins University.
+        It is not FDA-cleared and should not be used to guide clinical decisions without physician
+        oversight. Model code, training details, and full performance numbers:
+        <a href="https://github.com/PaulusLab/rd-oct-segmentation-model" style="color: #0d9488; font-weight: 600;">github.com/PaulusLab/rd-oct-segmentation-model</a>.
+    </div>
+</div>
+
+<script>
+// Modal assigns this URL dynamically at deploy time (format:
+// https://<modal-username>--rd-oct-segmentation-segment.modal.run) -- by the time
+// this task runs, Task 6 has already deployed and confirmed the real URL. Use
+// that exact recorded value here, not a guessed or generic one.
+const MODAL_ENDPOINT_URL = "https://lmunir1--rd-oct-segmentation-segment.modal.run";
+
+const uploadZone = document.getElementById("upload-zone");
+const fileInput = document.getElementById("file-input");
+const loadingState = document.getElementById("loading-state");
+const errorState = document.getElementById("error-state");
+const resultContainer = document.getElementById("result-container");
+
+uploadZone.addEventListener("click", () => fileInput.click());
+uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+uploadZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", (e) => {
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
+});
+
+function validateFile(file) {
+    const validTypes = ["image/png", "image/jpeg"];
+    if (!validTypes.includes(file.type)) {
+        return "Please upload a PNG or JPG image.";
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        return "Image is too large (max 10MB).";
+    }
+    return null;
+}
+
+async function handleFile(file) {
+    errorState.classList.remove("active");
+    resultContainer.innerHTML = "";
+
+    const validationError = validateFile(file);
+    if (validationError) {
+        errorState.textContent = validationError;
+        errorState.classList.add("active");
+        return;
+    }
+
+    loadingState.classList.add("active");
+    try {
+        const result = await runSegmentation(file);
+        loadingState.classList.remove("active");
+        renderResult(file, result);  // defined in Task 8
+    } catch (err) {
+        loadingState.classList.remove("active");
+        errorState.textContent = "Segmentation failed: " + err.message + ". Please try again.";
+        errorState.classList.add("active");
+    }
+}
+
+async function runSegmentation(imageFile) {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+
+    const response = await fetch(MODAL_ENDPOINT_URL, {
+        method: "POST",
+        body: formData,
+    });
+
+    if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    // data is { overlay_png_base64, stats } per modal_app.py's segment() return shape
+    return {
+        overlayImageUrl: "data:image/png;base64," + data.overlay_png_base64,
+        stats: data.stats,
+    };
+}
+
+// renderResult() is added in Task 8 -- placeholder so Task 7 is independently testable
+function renderResult(originalFile, result) {
+    resultContainer.innerHTML = "<p>Segmentation complete. (Interactive result view added in Task 8.)</p>";
+    console.log("Result stats:", result.stats);
+}
+</script>
+
+</body>
+</html>
