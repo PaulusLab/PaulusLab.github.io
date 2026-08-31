@@ -4,17 +4,20 @@
 
 **Goal:** Ship a public tool at `tools/rd-oct-segmentation-tool.html` on the Paulus Lab website where a
 visitor uploads one OCT B-scan image and gets back an interactive, hover-explorable segmentation
-overlay for SRF/ORC/IRC/ERM, backed by a real trained model served from Hugging Face Spaces, with the
-model itself versioned in a new GitHub repo.
+overlay for SRF/ORC/IRC/ERM, backed by a real trained model served from a Modal inference endpoint,
+with the model itself versioned in a new GitHub repo.
 
-**Architecture:** Three repos, one feature. `PaulusLab/rd-oct-segmentation-model` holds inference code
-+ the fold-4 checkpoint (Git LFS) as the citable artifact. A Hugging Face Space (Gradio) loads that
-same code+checkpoint and serves a public inference API — this is where compute actually happens.
-`PaulusLab.github.io`'s new static tool page calls that API directly from client-side JS; no server
-code lives in the website repo.
+**Architecture:** Two repos plus a serverless endpoint, one feature. `PaulusLab/rd-oct-segmentation-model`
+holds inference code + the fold-4 checkpoint (Git LFS) as the citable artifact, and doubles as the
+source Modal deploys from directly (no separate vendoring repo needed — Modal packages local files
+into its container image at deploy time). Modal serves the public inference API — this is where
+compute actually happens, billed per-invocation on its free Starter tier. `PaulusLab.github.io`'s new
+static tool page calls that API directly from client-side JS via `fetch()`; no server code lives in
+the website repo.
 
-**Tech Stack:** PyTorch + HuggingFace Transformers (SegFormer-B4) for the model, Gradio for the serving
-app, vanilla HTML/CSS/JS + Tailwind (CDN) + Canvas API for the tool page — matching the existing
+**Tech Stack:** PyTorch + HuggingFace Transformers (SegFormer-B4) for the model, Modal for serverless
+serving (a FastAPI-based HTTP endpoint under Modal's `@modal.fastapi_endpoint` decorator), vanilla
+HTML/CSS/JS + Tailwind (CDN) + Canvas API for the tool page — matching the existing
 `amd-tool.html`/`rds-calculator.html` pattern (no build step, no framework).
 
 ## Global Constraints
@@ -28,14 +31,14 @@ app, vanilla HTML/CSS/JS + Tailwind (CDN) + Canvas API for the tool page — mat
   `[0,1]`), then center-crop/pad to 512×512. Any deviation changes what the model actually sees.
 - 5-class label scheme, fixed order, never renumber: `0=Background, 1=SRF, 2=ORC, 3=IRC, 4=ERM`.
 - Real performance numbers (from this session's fold measurements) — copy these exact values
-  everywhere they appear (model README, Gradio Space info, tool page legend), never re-derive or
-  round differently:
+  everywhere they appear (model README, Modal app's `RELIABILITY` dict, tool page legend), never
+  re-derive or round differently:
   - SRF: Dice 0.780 — reliability tag "High"
   - IRC: Dice 0.515 — reliability tag "Moderate"
   - ORC: Dice 0.369 — reliability tag "Experimental"
   - ERM: Dice 0.348 — reliability tag "Experimental"
-- Every surface (model README, Space card, tool page footer) must state: "Research prototype — not
-  for clinical use." Not optional, not paraphrased away.
+- Every surface (model README, Modal app description, tool page footer) must state: "Research
+  prototype — not for clinical use." Not optional, not paraphrased away.
 - Tool page is a standalone HTML file (no Jekyll front matter, no Liquid templating) — same pattern as
   `tools/amd-tool.html` and `tools/rds-calculator.html`.
 - No automated JS test suite (matches site convention) — frontend tasks are verified by manual QA in
@@ -46,9 +49,12 @@ app, vanilla HTML/CSS/JS + Tailwind (CDN) + Canvas API for the tool page — mat
 ## Prerequisites (human steps — cannot be automated by the implementer)
 
 Before Task 5, whoever executes this plan needs:
-1. A Hugging Face account (create at huggingface.co if the lab doesn't have one) and an access token
-   with **write** scope (Settings → Access Tokens → New token). Set it as env var `HF_TOKEN` in the
-   shell that runs Task 5/6 — never commit it to any repo.
+1. ~~A Hugging Face account + write-scope token~~ — no longer needed: Task 5/6 target Modal instead
+   of Hugging Face Spaces (HF now requires a paid PRO subscription for Gradio/Docker Spaces even on
+   free CPU hardware, discovered when actually attempting this — see Task 5's "Why Modal" note).
+   Instead: a Modal account (free, no card required for the Starter tier — create at modal.com if the
+   lab doesn't have one), authenticated locally via `python3 -m modal setup` (Task 5, Step 1) — this
+   opens a browser to log in and stores a token locally, no value to type into any file or prompt.
 2. The trained checkpoint copied from the HPC to the local machine running this plan. On the HPC:
    `scp lmunir2@<hpc-host>:/projects/retinal_ai/rd_oct_seg/pipeline/outputs/models/biomarker_fold4_best.pth ~/Downloads/`
    (the exact HPC hostname/login node depends on current cluster access — use whatever `ssh`/`scp`
@@ -304,7 +310,7 @@ git push
 - Produces: `predict(image_path: str, checkpoint_path: str = "checkpoints/biomarker_fold4_best.pth")
   -> dict` with keys `mask` (`np.ndarray[512,512]` uint8, values 0-4), `confidence`
   (`np.ndarray[512,512]` float32, max-softmax per pixel), `class_pixel_pct` (`dict[str, float]`, one
-  entry per non-background class) — this exact return shape is what the Gradio app (Task 5) and any
+  entry per non-background class) — this exact return shape is what the Modal app (Task 5) and any
   future consumer build on.
 
 - [ ] **Step 1: Copy the checkpoint into place (human-downloaded per Prerequisites)**
@@ -453,8 +459,7 @@ membrane). Developed by the Paulus Lab, Johns Hopkins University.
 ## Live demo
 
 Try it at [pauluslab.github.io/tools/rd-oct-segmentation-tool.html](https://pauluslab.github.io/tools/rd-oct-segmentation-tool.html),
-served by a [Hugging Face Space](https://huggingface.co/spaces/PaulusLab/rd-oct-segmentation) running
-the exact code in this repo.
+served by a Modal inference endpoint (`modal_app.py`) running the exact code in this repo.
 
 ## Performance
 
@@ -506,80 +511,81 @@ git push
 
 ---
 
-## Phase 2 — Hugging Face Space
+## Phase 2 — Modal inference endpoint
 
-### Task 5: Create the Space and Gradio app
+**Why Modal, not Hugging Face Spaces:** the original design targeted HF Spaces, but HF now requires a
+paid PRO subscription ($9/mo) to host any Gradio/Docker Space, even on free CPU hardware (confirmed
+directly against the live API, not assumed). Modal's Starter tier is genuinely free ($30/month compute
+credit, no card required, no idle charges — you only pay for actual inference time, and a single-image
+CPU forward pass costs a small fraction of a cent), so Phase 2 targets Modal instead. This also
+simplifies deployment: Modal packages local files into its container image directly at `modal deploy`
+time, so there's no separate git repo to create/clone/vendor into — `modal_app.py` lives right in the
+model repo alongside the `src/`, `inference.py`, and `checkpoints/` it packages.
+
+**A note on Modal API accuracy:** Modal's web-endpoint decorator has been renamed before
+(`@modal.web_endpoint` → `@modal.fastapi_endpoint` as of v0.73.82) and may change again. The code below
+reflects Modal's currently-documented pattern as of this plan's writing. If `modal deploy` errors on a
+decorator or class/function composition that doesn't match what's below, that's a real signal the API
+moved again — check `https://modal.com/docs/examples` for the current "web endpoint with a loaded ML
+model" pattern rather than fighting the exact code here; this is exactly the kind of judgment call this
+task should escalate on if the fix isn't a one-line adjustment (see "When You're in Over Your Head" in
+your dispatch).
+
+### Task 5: Create and deploy the Modal inference endpoint
 
 **Files:**
-- Create (new HF-hosted git repo, separate clone): `~/Desktop/Projects/rd-oct-segmentation-space/`
-- Create: `app.py`
-- Create: `requirements.txt`
-- Create: `README.md` (HF Space card — different format from Task 4's, has YAML front matter HF reads)
+- Create: `~/Desktop/Projects/rd-oct-segmentation-model/modal_app.py`
 
 **Interfaces:**
-- Consumes: `predict()` from the model repo's `inference.py` — vendored into this Space repo directly
-  (Spaces are self-contained; copy `src/`, `inference.py`, and the checkpoint in rather than depending
-  on the GitHub repo at runtime).
-- Produces: a public Gradio API endpoint the tool page (Task 7) calls.
+- Consumes: `predict()` from `inference.py` (Task 3) — imported directly, no vendoring needed since
+  Modal packages this repo's own files into its deploy image.
+- Produces: a public HTTPS POST endpoint (URL printed by `modal deploy`, confirmed in Task 6) that
+  accepts multipart form data with an `image` field and returns JSON:
+  `{"overlay_png_base64": str, "stats": {"SRF": {...}, "ORC": {...}, "IRC": {...}, "ERM": {...}}}`
+  where each class's stats dict has `pixel_pct` (float), `dice` (float), `reliability` (str) — this
+  exact shape is what Task 7's frontend `fetch()` call parses.
 
-- [ ] **Step 1: Authenticate and create the Space**
-
-Requires `HF_TOKEN` env var set per Prerequisites.
-
-```bash
-pip install --user huggingface_hub
-python3 -c "
-from huggingface_hub import HfApi
-api = HfApi()
-api.create_repo(
-    repo_id='PaulusLab/rd-oct-segmentation',
-    repo_type='space',
-    space_sdk='gradio',
-    private=False,
-)
-"
-git clone https://huggingface.co/spaces/PaulusLab/rd-oct-segmentation ~/Desktop/Projects/rd-oct-segmentation-space
-cd ~/Desktop/Projects/rd-oct-segmentation-space
-git lfs install
-git lfs track "*.pth"
-```
-
-- [ ] **Step 2: Vendor the model code and checkpoint from the model repo**
+- [ ] **Step 1: Install the Modal CLI and authenticate**
 
 ```bash
-mkdir -p src checkpoints
-cp ~/Desktop/Projects/rd-oct-segmentation-model/src/model.py src/model.py
-cp ~/Desktop/Projects/rd-oct-segmentation-model/src/preprocessing.py src/preprocessing.py
-cp ~/Desktop/Projects/rd-oct-segmentation-model/inference.py inference.py
-cp ~/Desktop/Projects/rd-oct-segmentation-model/checkpoints/biomarker_fold4_best.pth checkpoints/
-touch src/__init__.py
+pip install modal
+python3 -m modal setup
 ```
 
-- [ ] **Step 3: Write `requirements.txt`**
+This opens a browser to authenticate with your Modal account (free, no card required for the Starter
+tier) and stores a token locally — same one-time-local-auth pattern already used for `gh` and Hugging
+Face in this project, no token value needs to be typed into any file.
 
-```
-torch>=2.0
-transformers>=4.35
-numpy
-scipy
-pillow
-gradio>=4.0
-```
-
-- [ ] **Step 4: Write `app.py`**
+- [ ] **Step 2: Write `modal_app.py`**
 
 ```python
-"""Gradio app serving RD OCT segmentation. Wraps inference.predict() with a
-color overlay renderer and per-class stats formatted for the tool page to consume."""
+"""Modal app serving RD OCT segmentation inference. Deploy with:
+    modal deploy modal_app.py
+Wraps inference.predict() with a color overlay renderer and per-class stats, exposed as a public
+HTTP POST endpoint (FastAPI-based under the hood, CORS enabled by default so the tool page's
+cross-origin fetch() call works without extra configuration)."""
 
-import numpy as np
-import gradio as gr
-from PIL import Image
+import base64
+import io
+import os
 
-from inference import predict, LABEL_NAMES
+import modal
 
-# Fixed color scheme -- the tool page's legend/hover tooltips must use these
-# exact colors (see Task 8) so the overlay and legend agree visually.
+app = modal.App("rd-oct-segmentation")
+
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install("torch", "transformers>=4.35", "numpy", "scipy", "pillow", "fastapi[standard]")
+    .add_local_dir("src", remote_path="/root/src")
+    .add_local_file("inference.py", remote_path="/root/inference.py")
+    .add_local_file(
+        "checkpoints/biomarker_fold4_best.pth",
+        remote_path="/root/checkpoints/biomarker_fold4_best.pth",
+    )
+)
+
+# Fixed color scheme -- the tool page's legend/hover tooltips (Task 8) must use these
+# exact colors so the overlay and legend agree visually.
 CLASS_COLORS = {
     1: (239, 68, 68),    # SRF -- red
     2: (245, 158, 11),   # ORC -- amber
@@ -594,31 +600,52 @@ RELIABILITY = {
     "ERM": {"dice": 0.348, "tag": "Experimental"},
 }
 
-
-def render_overlay(mask: np.ndarray) -> np.ndarray:
-    """RGBA overlay, transparent background, colored per class. Alpha 140/255 so
-    the original image shows through."""
-    overlay = np.zeros((*mask.shape, 4), dtype=np.uint8)
-    for class_idx, color in CLASS_COLORS.items():
-        class_mask = mask == class_idx
-        overlay[class_mask, 0] = color[0]
-        overlay[class_mask, 1] = color[1]
-        overlay[class_mask, 2] = color[2]
-        overlay[class_mask, 3] = 140
-    return overlay
+# Global cache: populated on first call in a warm container, reused on subsequent
+# calls to the same warm container -- avoids reloading the model every request.
+_state = {}
 
 
-def segment(image: Image.Image):
+def _get_predict():
+    if "predict" not in _state:
+        import sys
+        sys.path.insert(0, "/root")
+        os.chdir("/root")
+        from inference import predict
+        _state["predict"] = predict
+    return _state["predict"]
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+async def segment(image: "UploadFile" = None):
+    from fastapi import UploadFile, File
+    import numpy as np
+    from PIL import Image as PILImage
+
     if image is None:
-        raise gr.Error("No image provided.")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No image provided.")
 
+    contents = await image.read()
     tmp_path = "/tmp/upload.png"
-    image.convert("L").save(tmp_path)
+    with open(tmp_path, "wb") as f:
+        f.write(contents)
 
-    result = predict(tmp_path, checkpoint_path="checkpoints/biomarker_fold4_best.pth")
+    predict = _get_predict()
+    result = predict(tmp_path, checkpoint_path="/root/checkpoints/biomarker_fold4_best.pth")
 
-    overlay_rgba = render_overlay(result["mask"])
-    overlay_img = Image.fromarray(overlay_rgba, mode="RGBA")
+    overlay = np.zeros((*result["mask"].shape, 4), dtype=np.uint8)
+    for class_idx, color in CLASS_COLORS.items():
+        m = result["mask"] == class_idx
+        overlay[m, 0] = color[0]
+        overlay[m, 1] = color[1]
+        overlay[m, 2] = color[2]
+        overlay[m, 3] = 140
+
+    overlay_img = PILImage.fromarray(overlay, mode="RGBA")
+    buf = io.BytesIO()
+    overlay_img.save(buf, format="PNG")
+    overlay_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
     stats = {
         name: {
@@ -629,97 +656,58 @@ def segment(image: Image.Image):
         for name in ["SRF", "ORC", "IRC", "ERM"]
     }
 
-    return overlay_img, stats
-
-
-demo = gr.Interface(
-    fn=segment,
-    inputs=gr.Image(type="pil", label="Upload OCT B-scan"),
-    outputs=[
-        gr.Image(type="pil", label="Segmentation overlay (RGBA, transparent background)"),
-        gr.JSON(label="Per-class stats"),
-    ],
-    title="RD OCT Segmentation — Paulus Lab",
-    description=(
-        "Research prototype. Segments SRF/ORC/IRC/ERM from a single OCT B-scan. "
-        "Not for clinical use. See https://github.com/PaulusLab/rd-oct-segmentation-model "
-        "for model details and real performance numbers."
-    ),
-)
-
-if __name__ == "__main__":
-    demo.launch()
+    return {"overlay_png_base64": overlay_b64, "stats": stats}
 ```
 
-- [ ] **Step 5: Write the HF Space card (`README.md`)**
+Note: the `image: "UploadFile" = None` type hint uses a string forward-reference deliberately, since
+`UploadFile` is imported inside the function body (not at module top-level) — Modal's own examples
+follow this pattern for dependencies (torch, PIL, fastapi's request-parsing types) that only need to
+exist inside the deployed container, not in the local environment running `modal deploy`. If this
+causes a FastAPI parameter-typing issue at deploy time, move the `from fastapi import UploadFile, File`
+import to module top-level instead (fastapi is a lightweight enough dependency that this is safe
+either way) and use `image: UploadFile = File(...)` as the parameter signature — try the top-level
+import first if the string-annotation version doesn't validate correctly, and note in your report
+which one you used.
 
-```markdown
----
-title: RD OCT Segmentation
-emoji: 👁️
-colorFrom: teal
-colorTo: purple
-sdk: gradio
-sdk_version: 4.44.0
-app_file: app.py
-pinned: false
-license: mit
----
-
-# RD OCT Segmentation
-
-Segments SRF/ORC/IRC/ERM retinal detachment biomarkers from a single OCT B-scan image.
-Research prototype from the Paulus Lab, Johns Hopkins University — not for clinical use.
-
-Model code and training details: https://github.com/PaulusLab/rd-oct-segmentation-model
-```
-
-- [ ] **Step 6: Commit and push to the Space**
+- [ ] **Step 3: Deploy**
 
 ```bash
-git add .
-git commit -m "feat: initial Gradio app for RD OCT segmentation"
-git push
+cd ~/Desktop/Projects/rd-oct-segmentation-model
+modal deploy modal_app.py
 ```
+
+This uploads the checkpoint (via Modal's image-building layer, not Git LFS) and prints the deployed
+endpoint's public URL on success (format like `https://<your-modal-username>--rd-oct-segmentation-segment.modal.run`)
+— copy this exact URL, Task 6 and Task 7 both need it.
 
 ---
 
-### Task 6: Verify the live Space works end to end
+### Task 6: Verify the live Modal endpoint works end to end
 
 **Files:** none (verification task, no new files)
 
 **Interfaces:**
-- Consumes: the deployed Space's public API.
-- Produces: confirmation the tool page (Task 7) has a working backend to call.
+- Consumes: the deployed Modal endpoint's public URL (from Task 5, Step 3's `modal deploy` output).
+- Produces: confirmation the tool page (Task 7) has a working backend to call, and the exact URL for
+  Task 7 to use.
 
-- [ ] **Step 1: Wait for the Space to build**
-
-Check build status at `https://huggingface.co/spaces/PaulusLab/rd-oct-segmentation` — first build
-takes several minutes (installing torch + transformers). Wait for status "Running".
-
-- [ ] **Step 2: Test the live API with the same fixture image**
+- [ ] **Step 1: Test the live endpoint with the same fixture image**
 
 ```bash
-python3 -c "
-from gradio_client import Client
-client = Client('PaulusLab/rd-oct-segmentation')
-result = client.predict(
-    '/Users/luqmanmunir/Desktop/Projects/PaulusLab.github.io/sample_bscan_00030.png',
-    api_name='/predict'
-)
-print(result)
-"
+curl -X POST "<the modal deploy URL from Task 5>" \
+  -F "image=@/Users/luqmanmunir/Desktop/Projects/PaulusLab.github.io/sample_bscan_00030.png" \
+  | python3 -m json.tool | head -20
 ```
 
-Expected: prints a tuple of (path to overlay PNG, stats dict) with no error. If this fails with a
-timeout, the Space may be asleep (free-tier cold start) — wait ~60s and retry once.
+Expected: JSON with `overlay_png_base64` (a long base64 string) and `stats` (an object with SRF/ORC/IRC/ERM
+keys, each having `pixel_pct`/`dice`/`reliability`). First request after deploy may take 10-30s (cold
+start — the container needs to start and load the model); that's expected, not an error. If it fails,
+check `modal app logs rd-oct-segmentation` for the actual error rather than guessing.
 
-- [ ] **Step 3: Note the API endpoint details needed for Task 7**
+- [ ] **Step 2: Record the exact endpoint URL for Task 7**
 
-Record the exact input/output names from the Gradio API docs page (visit
-`https://huggingface.co/spaces/PaulusLab/rd-oct-segmentation?view=api` in a browser) — Task 7's
-`fetch()` call needs the exact endpoint path and parameter names shown there, which Gradio generates
-automatically and may not exactly match `/predict` depending on the Gradio version.
+Note the exact URL string that worked in Step 1 — Task 7's `MODAL_ENDPOINT_URL` constant must match it
+exactly (including the specific subdomain Modal assigned, which depends on your Modal username).
 
 ---
 
@@ -734,9 +722,9 @@ All of Phase 3 happens on the existing `rd-oct-segmentation-tool` branch already
 - Create: `tools/rd-oct-segmentation-tool.html`
 
 **Interfaces:**
-- Consumes: the HF Space's public API (endpoint confirmed in Task 6, Step 3).
+- Consumes: the Modal endpoint's public API (URL confirmed in Task 6, Step 2).
 - Produces: a `runSegmentation(imageFile)` JS function that later tasks (8, 9) attach rendering logic
-  to — it resolves with `{overlayImageUrl, stats}` matching the Space's output shape.
+  to — it resolves with `{overlayImageUrl, stats}` matching the endpoint's JSON response shape.
 
 - [ ] **Step 1: Write the page shell with upload UI**
 
@@ -838,7 +826,11 @@ All of Phase 3 happens on the existing `rd-oct-segmentation-tool` branch already
 </div>
 
 <script>
-const HF_SPACE_ID = "PaulusLab/rd-oct-segmentation";
+// Modal assigns this URL dynamically at deploy time (format:
+// https://<modal-username>--rd-oct-segmentation-segment.modal.run) -- by the time
+// this task runs, Task 6 has already deployed and confirmed the real URL. Use
+// that exact recorded value here, not a guessed or generic one.
+const MODAL_ENDPOINT_URL = "<paste the exact URL confirmed working in Task 6, Step 1>";
 
 const uploadZone = document.getElementById("upload-zone");
 const fileInput = document.getElementById("file-input");
@@ -893,13 +885,23 @@ async function handleFile(file) {
 }
 
 async function runSegmentation(imageFile) {
-    const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js");
-    const client = await Client.connect(HF_SPACE_ID);
-    const response = await client.predict("/predict", { image: imageFile });
-    // response.data is [overlayImage, statsJson] per app.py's outputs order
+    const formData = new FormData();
+    formData.append("image", imageFile);
+
+    const response = await fetch(MODAL_ENDPOINT_URL, {
+        method: "POST",
+        body: formData,
+    });
+
+    if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    // data is { overlay_png_base64, stats } per modal_app.py's segment() return shape
     return {
-        overlayImageUrl: response.data[0].url,
-        stats: response.data[1],
+        overlayImageUrl: "data:image/png;base64," + data.overlay_png_base64,
+        stats: data.stats,
     };
 }
 
@@ -931,7 +933,7 @@ or use its absolute path in the file picker). Verify:
 
 ```bash
 git add tools/rd-oct-segmentation-tool.html
-git commit -m "feat: add tool page shell with upload UI and HF Space API call"
+git commit -m "feat: add tool page shell with upload UI and Modal API call"
 git push
 ```
 
@@ -989,7 +991,7 @@ contents dynamically, so no static HTML needed here (built entirely in JS in Ste
 
 - [ ] **Step 2: Add the biomarker metadata constant**
 
-Add near the top of the `<script>` block, after `HF_SPACE_ID`:
+Add near the top of the `<script>` block, after `MODAL_ENDPOINT_URL`:
 
 ```javascript
 const BIOMARKER_INFO = {
@@ -1372,7 +1374,7 @@ matching the model repo README exactly, and download all work.
 - [ ] **Step 2: Cross-check performance numbers are consistent everywhere**
 
 Confirm SRF=0.780/High, IRC=0.515/Moderate, ORC=0.369/Experimental, ERM=0.348/Experimental appear
-identically in: model repo README (Task 4), HF Space `app.py`'s `RELIABILITY` dict (Task 5), and the
+identically in: model repo README (Task 4), `modal_app.py`'s `RELIABILITY` dict (Task 5), and the
 tool page's `BIOMARKER_INFO` constant (Task 8). Any mismatch is a bug — fix before opening the PR.
 
 - [ ] **Step 3: Open the PR**
@@ -1382,7 +1384,7 @@ cd ~/Desktop/Projects/PaulusLab.github.io
 gh pr create --title "Add RD OCT Segmentation Tool" --body "$(cat <<'EOF'
 ## Summary
 - New public tool: upload an OCT B-scan, get an interactive SRF/ORC/IRC/ERM segmentation overlay
-- Backed by a SegFormer-B4 model (fold 4, best of 5 CV folds) served via Hugging Face Spaces
+- Backed by a SegFormer-B4 model (fold 4, best of 5 CV folds) served via a Modal inference endpoint
 - Model code + checkpoint versioned separately at github.com/PaulusLab/rd-oct-segmentation-model
 - Honest per-class reliability shown throughout (SRF high, IRC moderate, ORC/ERM experimental)
 
