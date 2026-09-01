@@ -456,7 +456,7 @@ function attachDownloadHandler(canvas) {
     const btn = document.getElementById("download-btn");
     btn.addEventListener("click", () => {
         const link = document.createElement("a");
-        link.download = "rd-oct-segmentation-result.png";
+        link.download = "oct-segmentation-result.png";
         link.href = canvas.toDataURL("image/png");
         link.click();
     });
