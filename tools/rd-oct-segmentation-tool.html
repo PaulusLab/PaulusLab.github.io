@@ -49,6 +49,37 @@
             border-radius: 10px; padding: 16px 20px; font-size: 0.85rem; margin-top: 16px;
         }
         .error-state.active { display: block; }
+
+        .result-view { display: grid; grid-template-columns: 1fr 280px; gap: 24px; margin-top: 24px; }
+        @media (max-width: 720px) { .result-view { grid-template-columns: 1fr; } }
+
+        .image-panel { background: #fff; border-radius: 14px; border: 1px solid #e5e7eb; padding: 20px; }
+        .canvas-wrap { position: relative; width: 100%; }
+        #result-canvas { width: 100%; height: auto; border-radius: 8px; cursor: crosshair; display: block; }
+
+        .layer-toggles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .layer-toggle {
+            display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+            border: 1.5px solid #e5e7eb; background: #fff; cursor: pointer; font-size: 0.78rem;
+            font-weight: 600; color: #374151; transition: all 0.15s;
+        }
+        .layer-toggle.active { border-color: currentColor; background: color-mix(in srgb, currentColor 10%, white); }
+        .layer-toggle-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+        .hover-tooltip {
+            position: absolute; pointer-events: none; background: #111827; color: #fff;
+            padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; max-width: 220px;
+            display: none; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .hover-tooltip-title { font-weight: 700; margin-bottom: 2px; }
+        .hover-tooltip-desc { color: #d1d5db; line-height: 1.4; }
+
+        .download-btn {
+            display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+            background: #0d9488; color: #fff; padding: 10px 18px; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600; border: none; cursor: pointer; transition: opacity 0.15s;
+        }
+        .download-btn:hover { opacity: 0.88; }
     </style>
 </head>
 <body>
@@ -100,6 +131,39 @@
 // this task runs, Task 6 has already deployed and confirmed the real URL. Use
 // that exact recorded value here, not a guessed or generic one.
 const MODAL_ENDPOINT_URL = "https://lmunir1--rd-oct-segmentation-segment.modal.run";
+
+const BIOMARKER_INFO = {
+    SRF: {
+        name: "Subretinal Fluid",
+        color: "#ef4444",
+        description: "Fluid that has leaked beneath the retina — a hallmark of active retinal detachment.",
+        dice: 0.780,
+        reliability: "High",
+    },
+    ORC: {
+        name: "Outer Retinal Cysts",
+        color: "#f59e0b",
+        description: "Fluid-filled cystic spaces in the outer retina, associated with chronic detachment.",
+        dice: 0.369,
+        reliability: "Experimental",
+    },
+    IRC: {
+        name: "Intraretinal Cysts",
+        color: "#3b82f6",
+        description: "Fluid-filled cystic spaces within the retina itself.",
+        dice: 0.515,
+        reliability: "Moderate",
+    },
+    ERM: {
+        name: "Epiretinal Membrane",
+        color: "#a855f7",
+        description: "A thin fibrous layer on the retinal surface that can distort vision and affect surgical outcome.",
+        dice: 0.348,
+        reliability: "Experimental",
+    },
+};
+
+const RELIABILITY_COLORS = { High: "#16a34a", Moderate: "#ca8a04", Experimental: "#dc2626" };
 
 const uploadZone = document.getElementById("upload-zone");
 const fileInput = document.getElementById("file-input");
@@ -174,10 +238,228 @@ async function runSegmentation(imageFile) {
     };
 }
 
-// renderResult() is added in Task 8 -- placeholder so Task 7 is independently testable
-function renderResult(originalFile, result) {
-    resultContainer.innerHTML = "<p>Segmentation complete. (Interactive result view added in Task 8.)</p>";
-    console.log("Result stats:", result.stats);
+let activeLayers = new Set(Object.keys(BIOMARKER_INFO));
+let currentMaskImageData = null;  // ImageData of the raw overlay, sampled on hover
+
+async function renderResult(originalFile, result) {
+    const originalUrl = URL.createObjectURL(originalFile);
+
+    resultContainer.innerHTML = `
+        <div class="result-view">
+            <div class="image-panel">
+                <div class="canvas-wrap">
+                    <canvas id="result-canvas"></canvas>
+                    <div id="hover-tooltip" class="hover-tooltip"></div>
+                </div>
+                <div id="layer-toggles" class="layer-toggles"></div>
+                <button id="download-btn" class="download-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Annotated Image
+                </button>
+            </div>
+            <div id="legend-panel"></div>
+        </div>
+    `;
+
+    const canvas = document.getElementById("result-canvas");
+    const ctx = canvas.getContext("2d");
+
+    const [originalImg, overlayImg] = await Promise.all([
+        loadImage(originalUrl),
+        loadImage(result.overlayImageUrl),
+    ]);
+
+    canvas.width = overlayImg.width;
+    canvas.height = overlayImg.height;
+
+    canvas._originalImg = originalImg;
+    canvas._overlayImg = overlayImg;
+
+    // Draw original (cropped/padded space the model saw) then composite the overlay
+    ctx.drawImage(originalImg, 0, 0, canvas.width, canvas.height);
+    const overlayCanvas = document.createElement("canvas");
+    overlayCanvas.width = overlayImg.width;
+    overlayCanvas.height = overlayImg.height;
+    overlayCanvas.getContext("2d").drawImage(overlayImg, 0, 0);
+    currentMaskImageData = overlayCanvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+
+    redrawCanvas(ctx, originalImg, overlayImg, canvas.width, canvas.height);
+    buildLayerToggles();
+    buildLegendPanel(result.stats);
+    attachHoverHandler(canvas);
+    attachDownloadHandler(canvas);
+}
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
+
+// Mirrors src/preprocessing.py's center_crop_pad_2d exactly (numpy shape order is
+// [height, width]). The backend never resizes the uploaded image -- it crops or pads
+// it, centered, to reach 512x512. Drawing the original stretched into a square canvas
+// would misalign every overlay pixel with the anatomy it was actually detected in for
+// any non-square, non-512 input (i.e. virtually every real B-scan).
+function centerCropPadRect(srcW, srcH, dstW, dstH) {
+    const hSrcStart = Math.max(0, Math.floor((srcH - dstH) / 2));
+    const hSrcEnd = Math.min(srcH, hSrcStart + dstH);
+    const hDstStart = Math.max(0, Math.floor((dstH - srcH) / 2));
+
+    const wSrcStart = Math.max(0, Math.floor((srcW - dstW) / 2));
+    const wSrcEnd = Math.min(srcW, wSrcStart + dstW);
+    const wDstStart = Math.max(0, Math.floor((dstW - srcW) / 2));
+
+    return {
+        sx: wSrcStart, sy: hSrcStart,
+        sw: wSrcEnd - wSrcStart, sh: hSrcEnd - hSrcStart,
+        dx: wDstStart, dy: hDstStart,
+    };
+}
+
+function redrawCanvas(ctx, originalImg, overlayImg, width, height) {
+    ctx.clearRect(0, 0, width, height);
+    const r = centerCropPadRect(originalImg.naturalWidth, originalImg.naturalHeight, width, height);
+    ctx.drawImage(originalImg, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.sw, r.sh);
+    // Only draw overlay pixels whose class is in activeLayers -- done by drawing the
+    // full overlay image (browser handles per-pixel alpha from the RGBA PNG), then
+    // masking out inactive classes via a color-key redraw would need per-pixel work;
+    // simplest correct approach: re-render overlay from currentMaskImageData, zeroing
+    // alpha for inactive classes' RGB before compositing.
+    const filtered = ctx.createImageData(width, height);
+    for (let i = 0; i < currentMaskImageData.data.length; i += 4) {
+        const a = currentMaskImageData.data[i + 3];
+        if (a === 0) continue;
+        const classKey = classKeyForColor(currentMaskImageData.data[i], currentMaskImageData.data[i + 1], currentMaskImageData.data[i + 2]);
+        if (classKey && activeLayers.has(classKey)) {
+            filtered.data[i] = currentMaskImageData.data[i];
+            filtered.data[i + 1] = currentMaskImageData.data[i + 1];
+            filtered.data[i + 2] = currentMaskImageData.data[i + 2];
+            filtered.data[i + 3] = currentMaskImageData.data[i + 3];
+        }
+    }
+    const tmp = document.createElement("canvas");
+    tmp.width = width; tmp.height = height;
+    tmp.getContext("2d").putImageData(filtered, 0, 0);
+    ctx.drawImage(tmp, 0, 0);
+}
+
+// Canvas 2D contexts store pixel data premultiplied by alpha internally, so reading it
+// back via getImageData() on the semi-transparent overlay (alpha 140) round-trips through
+// a multiply/divide that can shift each RGB channel by +/-1 from the source PNG's exact
+// values. Exact hex-string matching against BIOMARKER_INFO's colors therefore misses
+// real overlay pixels entirely -- match to the nearest known class color within a small
+// tolerance instead.
+const CLASS_RGB = Object.fromEntries(
+    Object.entries(BIOMARKER_INFO).map(([key, info]) => [key, hexToRgb(info.color)])
+);
+
+function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function classKeyForColor(r, g, b) {
+    let bestKey = null;
+    let bestDist = Infinity;
+    for (const [key, [cr, cg, cb]] of Object.entries(CLASS_RGB)) {
+        const dist = Math.abs(r - cr) + Math.abs(g - cg) + Math.abs(b - cb);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestKey = key;
+        }
+    }
+    return bestDist <= 6 ? bestKey : null;
+}
+
+function buildLayerToggles() {
+    const container = document.getElementById("layer-toggles");
+    container.innerHTML = Object.entries(BIOMARKER_INFO).map(([key, info]) => `
+        <div class="layer-toggle active" data-key="${key}" style="color: ${info.color};">
+            <span class="layer-toggle-dot"></span>${key}
+        </div>
+    `).join("");
+
+    container.querySelectorAll(".layer-toggle").forEach(el => {
+        el.addEventListener("click", () => {
+            const key = el.dataset.key;
+            if (activeLayers.has(key)) {
+                activeLayers.delete(key);
+                el.classList.remove("active");
+            } else {
+                activeLayers.add(key);
+                el.classList.add("active");
+            }
+            const canvas = document.getElementById("result-canvas");
+            const ctx = canvas.getContext("2d");
+            // redraw needs the original+overlay images again -- cached on the canvas element
+            redrawCanvas(ctx, canvas._originalImg, canvas._overlayImg, canvas.width, canvas.height);
+        });
+    });
+}
+
+function buildLegendPanel(stats) {
+    const panel = document.getElementById("legend-panel");
+    panel.innerHTML = `
+        <div style="background: #fff; border-radius: 14px; border: 1px solid #e5e7eb; padding: 20px;">
+            <p style="font-size: 0.72rem; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px;">Biomarker Legend</p>
+            ${Object.entries(BIOMARKER_INFO).map(([key, info]) => `
+                <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background: ${info.color}; flex-shrink: 0;"></span>
+                        <span style="font-weight: 700; font-size: 0.85rem;">${key}</span>
+                        <span style="margin-left: auto; font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; background: ${RELIABILITY_COLORS[info.reliability]};">${info.reliability}</span>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #6b7280; margin-bottom: 4px;">${info.name}</div>
+                    <div style="font-size: 0.76rem; color: #374151; line-height: 1.4;">${info.description}</div>
+                    <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">Dice: ${info.dice} · ${(stats[key]?.pixel_pct ?? 0)}% of image</div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function attachHoverHandler(canvas) {
+    const tooltip = document.getElementById("hover-tooltip");
+    canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = Math.floor((e.clientX - rect.left) * scaleX);
+        const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+        const idx = (y * canvas.width + x) * 4;
+        const a = currentMaskImageData.data[idx + 3];
+        if (a === 0) {
+            tooltip.style.display = "none";
+            return;
+        }
+        const classKey = classKeyForColor(currentMaskImageData.data[idx], currentMaskImageData.data[idx + 1], currentMaskImageData.data[idx + 2]);
+        if (!classKey || !activeLayers.has(classKey)) {
+            tooltip.style.display = "none";
+            return;
+        }
+        const info = BIOMARKER_INFO[classKey];
+        tooltip.innerHTML = `<div class="hover-tooltip-title">${classKey} — ${info.name}</div><div class="hover-tooltip-desc">${info.description}</div>`;
+        tooltip.style.left = (e.clientX - rect.left + 12) + "px";
+        tooltip.style.top = (e.clientY - rect.top + 12) + "px";
+        tooltip.style.display = "block";
+    });
+    canvas.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+}
+
+function attachDownloadHandler(canvas) {
+    const btn = document.getElementById("download-btn");
+    btn.addEventListener("click", () => {
+        const link = document.createElement("a");
+        link.download = "rd-oct-segmentation-result.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    });
 }
 </script>
 
