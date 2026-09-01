@@ -275,8 +275,6 @@ async function renderResult(originalFile, result) {
     canvas._originalImg = originalImg;
     canvas._overlayImg = overlayImg;
 
-    // Draw original (cropped/padded space the model saw) then composite the overlay
-    ctx.drawImage(originalImg, 0, 0, canvas.width, canvas.height);
     const overlayCanvas = document.createElement("canvas");
     overlayCanvas.width = overlayImg.width;
     overlayCanvas.height = overlayImg.height;
