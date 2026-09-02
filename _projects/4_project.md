@@ -2,8 +2,10 @@
 layout: page
 title: RD OCT Segmentation Tool
 description: Interactive biomarker segmentation for retinal detachment OCT images
-importance: 4
+importance: 3
 related_publications: false
+icon: fa-solid fa-layer-group
+github: https://github.com/PaulusLab/rd-oct-segmentation-model
 ---
 
 The RD OCT Segmentation Tool segments retinal detachment biomarkers from a single OCT B-scan image
@@ -16,6 +18,4 @@ Key features include:
 - **Honest reliability reporting** — each biomarker's real measured accuracy is shown, not hidden behind a single blanket disclaimer.
 - **Downloadable results** — export the annotated image directly from the browser.
 
-Model code, training details, and full performance numbers: [github.com/PaulusLab/rd-oct-segmentation-model](https://github.com/PaulusLab/rd-oct-segmentation-model)
-
-[Try the tool →](https://pauluslab.github.io/tools/rd-oct-segmentation-tool.html)
+<a class="tool-cta" href="https://pauluslab.github.io/tools/rd-oct-segmentation-tool.html">Try the tool →</a>

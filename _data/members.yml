@@ -1,0 +1,16 @@
+# Lab members: add yourself below. Copy an existing entry, fill in your own
+# details, and commit — see the "Are you a lab member?" note at the bottom of
+# the /members/ page for how to edit this file straight from GitHub's web UI.
+#
+# Fields:
+#   name    - your name
+#   role    - your title (e.g. "Medical Student Researcher", "PhD Candidate")
+#   github  - your GitHub username only (not the full URL)
+#   current - one line on what you're currently working on
+#   link    - optional: a link to a specific project/repo you want to highlight
+
+- name: Luqman Munir
+  role: Medical Student Researcher
+  github: lmunir1
+  current: RD OCT segmentation model and the RDS surgical risk calculator.
+  link: https://github.com/PaulusLab/rd-oct-segmentation-model

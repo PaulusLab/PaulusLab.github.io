@@ -3,5 +3,6 @@ github_users:
 repo_description_lines_max: 2
 
 github_repos:
-  - PaulusLab/PaulusLab.github.io
+  - PaulusLab/rd-oct-segmentation-model
+  - lmunir1/RDS-Risk-Calculator
 

@@ -2,8 +2,8 @@
 layout: page
 permalink: /publications/
 title: Selected Publications
-description: A curated selection of recent lab publications on retinal imaging, laser therapy, and AI-driven clinical care.
-nav: true
+description: A curated selection of the lab's AI-related publications.
+nav: false
 nav_order: 2
 ---
 

@@ -1,0 +1,33 @@
+<div class="col">
+  <div class="card h-100 hoverable member-card">
+    <img
+      class="card-img-top member-avatar"
+      src="https://github.com/{{ member.github }}.png?size=200"
+      alt="{{ member.name }}"
+      loading="lazy"
+    >
+    <div class="card-body">
+      <h2 class="card-title">{{ member.name }}</h2>
+      {% if member.role %}
+        <p class="member-role">{{ member.role }}</p>
+      {% endif %}
+      {% if member.current %}
+        <p class="card-text">{{ member.current }}</p>
+      {% endif %}
+      <div class="row ml-1 mr-1 p-0">
+        <div class="github-icon">
+          <div class="icon" data-toggle="tooltip" title="GitHub">
+            <a href="https://github.com/{{ member.github }}"><i class="fa-brands fa-github gh-icon"></i></a>
+          </div>
+        </div>
+        {% if member.link %}
+          <div class="github-icon">
+            <div class="icon" data-toggle="tooltip" title="Project">
+              <a href="{{ member.link }}"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
