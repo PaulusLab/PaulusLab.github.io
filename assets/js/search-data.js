@@ -406,6 +406,11 @@ ninja.data = [{
           description: "Internal project, task, and resource management platform",
           section: "Projects",handler: () => {
               window.location.href = "/projects/3_project/";
+            },},{id: "projects-rd-oct-segmentation-tool",
+          title: 'RD OCT Segmentation Tool',
+          description: "Interactive biomarker segmentation for retinal detachment OCT images",
+          section: "Projects",handler: () => {
+              window.location.href = "/projects/4_project/";
             },},{
         id: 'social-email',
         title: 'email',
