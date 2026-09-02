@@ -16,7 +16,7 @@ footer_text: >
   Hosted by <a href="https://pages.github.com/" target="_blank">GitHub Pages</a>.
 keywords: ophthalmology, retina, retinal imaging, laser therapy, jhu, wilmer eye institute # add your own keywords or leave empty
 lang: en 
-icon: 👁️ # Changed to an eye emoji, seems fitting!
+icon: favicon-dr-paulus.png
 
 url: https://PaulusLab.github.io # This MUST match your repository name
 baseurl: "" # Leave this blank
