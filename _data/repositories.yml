@@ -1,8 +1,10 @@
-github_users:
+repos:
+  - name: RD OCT Segmentation Model
+    repo: PaulusLab/rd-oct-segmentation-model
+    description: SegFormer-B4 model segmenting four retinal detachment biomarkers (SRF, ORC, IRC, ERM) from OCT B-scan images.
+    icon: fa-solid fa-layer-group
 
-repo_description_lines_max: 2
-
-github_repos:
-  - PaulusLab/rd-oct-segmentation-model
-  - lmunir1/RDS-Risk-Calculator
-
+  - name: RDS Risk Calculator
+    repo: lmunir1/RDS-Risk-Calculator
+    description: Elastic-net risk model for retinal detachment surgery outcomes, trained on real-world EHR data with propensity-score-matched variable screening.
+    icon: fa-solid fa-calculator

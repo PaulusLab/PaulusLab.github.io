@@ -1,0 +1,18 @@
+<div class="col">
+  <a href="https://github.com/{{ repo.repo }}">
+    <div class="card h-100 hoverable">
+      <div class="card-icon-tile"><i class="{{ repo.icon }}"></i></div>
+      <div class="card-body">
+        <h2 class="card-title">{{ repo.name }}</h2>
+        <p class="card-text">{{ repo.description }}</p>
+        <div class="row ml-1 mr-1 p-0">
+          <div class="github-icon">
+            <div class="icon" data-toggle="tooltip" title="{{ repo.repo }}">
+              <i class="fa-brands fa-github gh-icon"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </a>
+</div>
