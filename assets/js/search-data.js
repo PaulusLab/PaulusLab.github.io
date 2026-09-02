@@ -9,19 +9,26 @@ ninja.data = [{
     handler: () => {
       window.location.href = "/";
     },
-  },{id: "nav-selected-publications",
-          title: "Selected Publications",
-          description: "A curated selection of recent lab publications on retinal imaging, laser therapy, and AI-driven clinical care.",
-          section: "Navigation",
-          handler: () => {
-            window.location.href = "/publications/";
-          },
-        },{id: "nav-tools",
+  },{id: "nav-tools",
           title: "Tools",
           description: "Clinical decision-support tools built by the lab.",
           section: "Navigation",
           handler: () => {
             window.location.href = "/projects/";
+          },
+        },{id: "nav-repos",
+          title: "Repos",
+          description: "Source code for the lab&#39;s tools.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/repositories/";
+          },
+        },{id: "nav-members",
+          title: "Members",
+          description: "Lab members, their GitHub profiles, and what they&#39;re currently working on.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/members/";
           },
         },{id: "post-a-post-with-plotly-js",
         
@@ -401,11 +408,6 @@ ninja.data = [{
           description: "Longitudinal patient profiling and treatment optimization for AMD",
           section: "Projects",handler: () => {
               window.location.href = "/projects/2_project/";
-            },},{id: "projects-lab-research-dashboard",
-          title: 'Lab Research Dashboard',
-          description: "Internal project, task, and resource management platform",
-          section: "Projects",handler: () => {
-              window.location.href = "/projects/3_project/";
             },},{id: "projects-rd-oct-segmentation-tool",
           title: 'RD OCT Segmentation Tool',
           description: "Interactive biomarker segmentation for retinal detachment OCT images",
